@@ -2,9 +2,9 @@ import Essentia from 'essentia.js/dist/essentia.js-core.es.js'
 import wasmUrl from 'essentia.js/dist/essentia-wasm.es.js?url'
 import { ANALYSIS_SAMPLE_RATE, ANALYSIS_VERSION } from '../analysis/analysisTypes'
 import type { AnalysisMessage, MusicAnalysisResult } from '../analysis/analysisTypes'
+import { normalizePitchName } from '../analysis/pitchNames'
 
 const send = (message: AnalysisMessage) => self.postMessage(message)
-const sharps: Record<string, string> = { Db: 'C#', Eb: 'D#', Gb: 'F#', Ab: 'G#', Bb: 'A#' }
 self.onmessage = async ({ data: samples }: MessageEvent<Float32Array>) => {
   let essentia: Essentia | undefined
   let signal: ReturnType<Essentia['arrayToVector']> | undefined
@@ -41,8 +41,8 @@ self.onmessage = async ({ data: samples }: MessageEvent<Float32Array>) => {
       const tonal = essentia.KeyExtractor(signal)
       if (Number.isFinite(tonal.strength)) result.confidence.key = tonal.strength
       if (tonal.strength >= .5 && ['major', 'minor'].includes(tonal.scale)) {
-        result.key = sharps[tonal.key] ?? tonal.key
-        result.scale = tonal.scale as 'major' | 'minor'
+        result.key = normalizePitchName(tonal.key)
+        result.scale = result.key ? tonal.scale as 'major' | 'minor' : null
       }
     } catch { /* A rhythm-only result is useful; no invented key fallback. */ }
     send({ kind: 'result', result })

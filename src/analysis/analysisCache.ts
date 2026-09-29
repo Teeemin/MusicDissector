@@ -1,13 +1,14 @@
 import { ANALYSIS_VERSION, validResult } from './analysisTypes'
 import type { MusicAnalysisResult } from './analysisTypes'
 
-export interface AnalysisCache {
-  get(key: string): Promise<MusicAnalysisResult | null>
-  put(key: string, result: MusicAnalysisResult, signal: AbortSignal): Promise<void>
+export interface ResultCache<T> {
+  get(key: string): Promise<T | null>
+  put(key: string, result: T, signal: AbortSignal): Promise<void>
 }
+export type AnalysisCache = ResultCache<MusicAnalysisResult>
 
 /** Hash at most 192 KiB plus identity, not an entire multi-hundred-MB file. */
-export async function fingerprint(file: File): Promise<string> {
+export async function fingerprint(file: File, version = ANALYSIS_VERSION): Promise<string> {
   const size = 65536
   const positions = [...new Set([0, Math.max(0, Math.floor(file.size / 2) - size / 2), Math.max(0, file.size - size)])]
   const parts = await Promise.all(positions.map((start) => file.slice(start, start + size).arrayBuffer()))
@@ -17,13 +18,16 @@ export async function fingerprint(file: File): Promise<string> {
   let offset = identity.length
   for (const part of parts) { bytes.set(new Uint8Array(part), offset); offset += part.byteLength }
   const digest = await crypto.subtle.digest('SHA-256', bytes)
-  return `${ANALYSIS_VERSION}:${Array.from(new Uint8Array(digest), (n) => n.toString(16).padStart(2, '0')).join('')}`
+  return `${version}:${Array.from(new Uint8Array(digest), (n) => n.toString(16).padStart(2, '0')).join('')}`
 }
 
-export class IndexedAnalysisCache implements AnalysisCache {
+export class IndexedResultCache<T> implements ResultCache<T> {
+  private name: string
+  private validate: (value: unknown) => value is T
+  constructor(name: string, validate: (value: unknown) => value is T) { this.name = name; this.validate = validate }
   private open(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open('music-dissector-analysis', 1)
+      const request = indexedDB.open(this.name, 1)
       let expired = false
       const timer = setTimeout(() => { expired = true; reject(new Error('Cache open timed out')) }, 2000)
       request.onupgradeneeded = () => request.result.createObjectStore('results')
@@ -36,20 +40,20 @@ export class IndexedAnalysisCache implements AnalysisCache {
       request.onblocked = () => { expired = true; clearTimeout(timer); reject(new Error('Cache unavailable')) }
     })
   }
-  async get(key: string): Promise<MusicAnalysisResult | null> {
+  async get(key: string): Promise<T | null> {
     const db = await this.open()
     try {
       return await new Promise((resolve, reject) => {
         const tx = db.transaction('results', 'readonly')
         const request = tx.objectStore('results').get(key)
         const timer = setTimeout(() => tx.abort(), 2000)
-        tx.oncomplete = () => { clearTimeout(timer); resolve(validResult(request.result) ? request.result : null) }
+        tx.oncomplete = () => { clearTimeout(timer); resolve(this.validate(request.result) ? request.result : null) }
         tx.onabort = tx.onerror = () => { clearTimeout(timer); reject(tx.error ?? new Error('Cache read failed')) }
       })
     } finally { db.close() }
   }
-  async put(key: string, result: MusicAnalysisResult, signal: AbortSignal): Promise<void> {
-    if (!validResult(result)) throw new Error('Invalid analysis result')
+  async put(key: string, result: T, signal: AbortSignal): Promise<void> {
+    if (!this.validate(result)) throw new Error('Invalid analysis result')
     signal.throwIfAborted()
     const db = await this.open()
     try {
@@ -66,4 +70,8 @@ export class IndexedAnalysisCache implements AnalysisCache {
       })
     } finally { db.close() }
   }
+}
+
+export class IndexedAnalysisCache extends IndexedResultCache<MusicAnalysisResult> {
+  constructor() { super('music-dissector-analysis', validResult) }
 }

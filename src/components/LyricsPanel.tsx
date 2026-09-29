@@ -5,13 +5,18 @@ import type { LyricsDocument } from '../lyrics/types'
 import { usePlayback } from '../stores/playbackStore'
 import { formatTime } from '../utils/format'
 import './LyricsPanel.css'
+import { useMemo } from 'react'
+import { useChords } from '../analysis/useChords'
+import { matchLyricChords } from '../analysis/chordUtils'
 
 type TimedLyrics = Extract<LyricsDocument, { lines: unknown }>
 
 function TimedLyricsView({ lyrics }: { lyrics: TimedLyrics }) {
   const { currentTime, duration, isReady } = usePlayback()
   const activeIndex = findActiveLine(lyrics.lines, currentTime)
-  const { viewportRef, following, pauseFollowing, resumeFollowing } = useLyricsFollow(activeIndex)
+  const { result } = useChords()
+  const matches = useMemo(() => matchLyricChords(lyrics.lines, duration, result?.chords ?? []), [lyrics.lines, duration, result])
+  const { viewportRef, following, pauseFollowing, resumeFollowing } = useLyricsFollow(activeIndex, result)
 
   return (
     <>
@@ -33,6 +38,11 @@ function TimedLyricsView({ lyrics }: { lyrics: TimedLyrics }) {
         <ol className="lyrics-lines">
           {lyrics.lines.map((line, index) => (
             <li key={`${index}:${line.time}`}>
+              {!!matches[index]?.length && <div className="lyric-chords" aria-label="이 가사 구간의 코드">
+                {matches[index].map((chord) => <button type="button" className="lyric-chord" key={chord.start}
+                  disabled={!isReady || chord.start > duration} aria-label={`${formatTime(chord.start)} ${chord.chord} 코드로 이동`}
+                  onClick={() => audioEngine.seek(chord.start)}>{chord.chord}</button>)}
+              </div>}
               <button
                 className="lyric-line"
                 data-active={index === activeIndex}

@@ -1,0 +1,25 @@
+.current-chord-strip { display: grid; grid-template-columns: 1fr 1.5fr 1fr; align-items: center; gap: 8px; width: 100%; max-width: 360px; margin: 18px auto 0; text-align: center; }
+.current-chord-strip > div { display: flex; flex-direction: column; gap: 5px; padding: 9px 4px; min-width: 0; }
+.current-chord-strip span { color: var(--text-secondary); font-size: 10px; }
+.current-chord-strip strong { color: var(--text-body); font-size: 18px; font-weight: 600; overflow-wrap: anywhere; }
+.current-chord-strip .current-chord-main { background: var(--bg-selected); border-radius: 10px; }
+.current-chord-main strong { color: var(--accent-strong); font-size: 30px; }
+.chord-progression { min-width: 0; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-subtle); }
+.chord-progression-heading, .chord-timeline-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--text-secondary); font-size: 10px; }
+.chord-progression-heading > span { letter-spacing: 1px; }
+.chord-progression button { min-height: 44px; background: transparent; color: var(--accent-strong); border-radius: 7px; padding: 6px 8px; font-size: 11px; }
+.chord-progression button:hover:not(:disabled) { background: var(--bg-hover); }
+.chord-progression button:disabled { color: var(--text-muted); }
+.chord-status { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; }
+.chord-timeline { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: 6px; border-radius: 7px; }
+.chord-timeline:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chord-timeline ol { display: flex; gap: 5px; margin: 0; padding: 0; list-style: none; width: max-content; }
+.chord-timeline button { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 58px; background: var(--bg-surface); border: 1px solid var(--border-subtle); }
+.chord-timeline button strong { font-size: 14px; font-weight: 600; }
+.chord-timeline button span { color: var(--text-secondary); font-size: 9px; font-variant-numeric: tabular-nums; }
+.chord-timeline button[aria-current='true'] { background: var(--blue-100); color: var(--blue-900); box-shadow: inset 0 -2px var(--accent); }
+.lyric-chords { display: flex; flex-wrap: wrap; gap: 4px 8px; padding: 4px 16px 0 72px; }
+.lyric-chord { min-height: 44px; padding: 6px 9px; background: var(--bg-selected); color: var(--accent-strong); border-radius: 6px; font-size: 13px; font-weight: 600; }
+.lyric-chord:hover:not(:disabled) { background: var(--bg-hover); }
+.lyric-chord:disabled { color: var(--text-muted); }
+@media (max-width: 699px) { .lyric-chords { padding-left: 58px; padding-right: 10px; } }

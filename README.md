@@ -1,4 +1,4 @@
-# Music Dissector · Phase 4
+# Music Dissector · Phase 5
 
 React + TypeScript + Vite 기반의 모바일 우선 로컬 음악 플레이어입니다. 기존 Vite 프로젝트를 이어서 구현했습니다.
 
@@ -15,7 +15,51 @@ React + TypeScript + Vite 기반의 모바일 우선 로컬 음악 플레이어�
 - 내장 SYLT / LRC / 일반 가사 구분 및 표시
 - 시간 가사의 현재 줄 강조, 줄 클릭 seek, 자동 스크롤과 Follow
 
-**Phase 4까지만 구현했습니다.** 실제 음원의 BPM / beat / Key 분석을 추가했습니다. 실제 stem separation, chord 분석, AI 가사 동기화, 서버 연동, export는 구현하지 않았습니다. 기존 재생 / metadata / artwork / 가사 / 믹서 설정과 파스텔 테마는 유지합니다.
+**Phase 5까지만 구현했습니다.** 실제 음원의 BPM / beat / Key / chord 분석과 시간 가사 연동을 제공합니다. 실제 stem separation, AI 가사 동기화, 서버 연동, export는 구현하지 않았습니다. 기존 재생 / metadata / artwork / 가사 / 믹서 설정과 파스텔 테마는 유지합니다.
+
+## Phase 5: 코드 진행과 가사
+
+플레이어 상단에서 이전 / 현재 / 다음 코드를 확인합니다. 분석 영역에는 가로 코드 타임라인, 현재 구간 강조, 클릭 seek, 수동 스크롤 시 따라가기 중지와 `따라가기` 재개가 있습니다. 코드가 없는 구간은 `—`입니다. 곡 끝의 정확한 end timestamp에서는 활성 구간이 없습니다. 기존 playback currentTime 하나를 사용하며 별도 재생 엔진/시계를 만들지 않습니다.
+
+시간이 있는 LRC/SYLT 가사는 현재 줄부터 다음 시작 시간까지 겹치는 코드를 줄 위에 시간 순서대로 표시합니다. 같은 시작 시간의 줄은 같은 범위를 공유하고 마지막 줄은 곡 끝까지입니다. 단어 위치를 추정하지 않습니다. 가사 버튼은 줄 시작으로, 별도 코드 버튼은 실제 코드 시작으로 이동합니다. 일반 USLT/시간 없는 텍스트에는 코드를 배정하지 않습니다. 가사 Follow와 코드 따라가기는 독립이며 새 파일/재분석 시 코드 타임라인 스크롤 상태도 초기화됩니다.
+
+### 분석 방식과 한계
+
+- **추가 패키지 없음.** 기존 `essentia.js@0.1.3` (AGPL-3.0)과 실제 설치 API `Windowing → Spectrum → SpectralPeaks → HPCP`를 사용합니다. [HPCP 공식 문서](https://essentia.upf.edu/reference/std_HPCP.html)의 A-first 출력을 C-first pitch class로 변환합니다.
+- 입력은 기존 분석용 44.1 kHz mono 전처리입니다. **8192 samples(약 186ms) Blackman-Harris 92dB window / 4410 samples(100ms) hop**으로 곡 전체를 분석합니다. window는 timestamp를 중심으로 하며 시작/끝은 zero padding합니다. 55–3500 Hz의 최대 60 spectral peaks, 12-bin HPCP를 사용합니다.
+- **Major / Minor / 7 / maj7 / m7 / sus2 / sus4 / dim / aug** × 12근음의 템플릿과 cosine similarity를 비교합니다. chord constituent별 근거와 chroma 설명 비율을 검사하며 4음 코드에는 작은 복잡도 패널티를 줍니다. 입력이 부족하거나 무음/잡음이면 `N`입니다. confidence는 알고리즘 점수이고 정확도 확률이 아닙니다.
+- **Viterbi smoothing**은 전환 비용 0.35로 프레임 수 × 상태 수에 비례하는 계산을 합니다. 300ms 미만의 일시적 코드 흔들림과 불확실한 전환 프레임을 정리합니다. RMS/flatness가 확인한 실제 무음/잡음은 이 과정에서 채우지 않습니다.
+- **Beat snapping은 적용하지 않습니다.** BPM/beat 추정 오류가 chord 경계를 바꾸지 않게 독립적인 100ms 시간축을 유지합니다. beat와 chord는 동일한 원곡 초 단위 좌표를 사용합니다.
+- Key/chord는 `pitchNames.ts`의 공통 sharp 규칙(C#, D#, F#, G#, A#)을 사용합니다. 반개구간 `[start, end)`의 현재/이전/다음 코드를 이진 탐색합니다. `ChordSegment`는 start/end/chord/confidence를 가진 수정 가능한 데이터 구조이며 편집 UI는 없습니다.
+- 실제 음악에서는 배음/보컬/저음 때문에 코드가 단순화되거나 잘못 추정될 수 있습니다. 같은 pitch-class set인 sus2/sus4 전위, aug의 대칭 근음 등은 유일한 정답으로 구별할 수 없습니다. 9/11/13/altered, slash chord, 정확한 단어 alignment는 추정하지 않습니다.
+
+### 상태, 캐시와 모바일 성능
+
+- 기다림 → 분석용 음원 준비 → 특징 추출 → 코드 진행 분석 → 완료/실패. 실제 단계에만 spinner를 표시하며 가짜 백분율은 없습니다. 실패해도 재생과 기존 BPM/Key 결과는 유지됩니다.
+- `코드 재분석`은 코드 캐시를 건너뛰고 갱신합니다. 기존 `다시 분석`은 BPM/beat/Key를 갱신하는 Phase 4 동작을 유지합니다.
+- `IndexedResultCache`를 재사용하며 별도 IndexedDB `music-dissector-chords/results`에 chords/engineVersion/analyzedAt을 저장합니다. Phase 4 데이터베이스 이름·스키마는 유지합니다. 동일한 bounded file fingerprint에 독립적인 chord engine version을 넣어 서로 충돌하지 않습니다. 저장 실패 시에도 분석은 사용 가능합니다.
+- 기본적으로 Phase 4 작업이 끝나거나 실패한 뒤 코드 분석을 실행하여 최초 두 전체 곡 분석의 CPU/RAM 경쟁을 줄입니다. 디코딩 코드를 재사용하되, 큰 PCM을 계속 보관하지 않도록 코드 분석 시 다시 디코딩합니다. 재분석은 각 작업별로 독립적입니다.
+- 실제 FFT/HPCP/template/Viterbi는 전용 Worker에서 수행합니다. `workerJob.ts`가 Phase 4/5의 timeout, transferable mono 전송, abort, 종료를 공통 처리합니다. 프레임별 WASM vector를 즉시 delete하고, 12-bin chroma는 저장하지 않으며 작은 score 배열/Uint8 backpointer만 유지합니다. 완료/취소 시 Worker와 WASM heap을 해제합니다.
+- 파일 교체/dispose 시 이전 작업을 취소하고, 파일 identity와 AbortController 검사로 늦은 성공/오류/단계를 모두 무시합니다. Phase 4의 입력 256MiB/디코딩 PCM 256MiB/15분 한계와 Worker 180초 제한을 재사용합니다.
+
+### Phase 5 변경 파일
+
+| 경로 | 내용 |
+| --- | --- |
+| `src/analysis/ChordAnalysisEngine.ts`, `chordTypes.ts`, `chordDetection.ts` | 코드 분석 계약과 템플릿/Viterbi |
+| `src/workers/chordAnalysis.worker.ts` | 실제 waveform 특징 추출과 분석 |
+| `src/analysis/chordUtils.ts`, `pitchNames.ts` | 현재/이전/다음/가사 범위 검색과 공통 표기 |
+| `src/analysis/chordStore.ts`, `useChords.ts` | 선택·상태·캐시·재분석·취소·React 구독 |
+| `src/analysis/workerJob.ts`, `MusicAnalysisEngine.ts`, `analysisCache.ts`, `essentia.d.ts` | Worker/cache 공통화와 검증된 API 타입 |
+| `src/workers/musicAnalysis.worker.ts` | Key 표기의 공통 utility 연결 |
+| `src/components/ChordDisplay.tsx`, `ChordDisplay.css` | 현재 코드와 타임라인 UI |
+| `src/components/Player.tsx`, `AnalysisSummary.tsx`, `LyricsPanel.tsx` | 기존 UI와 코드/가사 연결 |
+| `src/audio/AudioEngine.ts`, `src/lyrics/useLyricsFollow.ts` | 파일/dispose 수명주기와 가사+코드 높이 반영 |
+| `tests/chords.spec.ts`, `tests/phase5.spec.ts`, `tests/fixtures/chordAudio.ts` | 단위/mock 테스트와 실제 오디오/오프라인/모바일 검증 |
+
+최종 검증(2026-09-29): `npm run build`, `npm run lint`, `git diff --check` 통과. 기존 Phase 1~4 **61개**와 Phase 5 **25개**, 총 **86개** 테스트가 모두 통과했습니다(실패/건너뜀/재시도 없음). 실제 22초 PCM의 9가지 코드와 무음/잡음, 실제 오프라인 분석, 캐시 복원/재분석, 가사·코드 클릭 seek, 독립적인 Follow, 320/412/800px 화면을 검증했습니다. CPU 4배 감속 Chromium에서 터치 재생/seek와 412→800px 펼침 중 관측 최대 프레임 간격은 약 33.4ms, long task는 0개였습니다(테스트 파일 전송 이후 관측). Galaxy Z Fold7 실기기 측정이나 일반 상용 음원의 정확도 보장은 아닙니다.
+
+Phase 6는 구현하지 않았습니다.
 
 ## Phase 4: 로컬 음악 분석
 
@@ -198,4 +242,4 @@ Phase 3 테스트는 6개 채널, 볼륨 범위, Mute 우선 규칙, Solo / mult
 
 한 곡의 재생 시간은 HTMLAudioElement 하나가 관리하며, 전역 snapshot을 React 컴포넌트에서 구독합니다. 재생 버튼의 사용자 동작 안에서 AudioContext를 생성 / resume하고 `MediaElementAudioSourceNode → destination`으로 연결합니다. Web Audio API가 없는 브라우저는 HTMLAudioElement 기본 출력으로 재생합니다.
 
-재생 경로는 파일을 통째로 AudioBuffer로 디코딩하지 않습니다. Phase 4 분석만 별도 임시 버퍼를 사용합니다. 파일 교체 시 이전 Object URL을 해제하고 재생을 멈춥니다. 비동기 play가 진행 중일 때 파일이 바뀌면 이전 작업의 결과는 무시합니다. 메타데이터와 가사, 현재 beat도 같은 AudioEngine 및 playback state에 연결되어 있으며, 두 번째 재생 엔진은 없습니다. Phase 5 이후 개발은 별도 요청에 따라 진행합니다.
+재생 경로는 파일을 통째로 AudioBuffer로 디코딩하지 않습니다. Phase 4/5 분석은 별도 임시 버퍼를 사용합니다. 파일 교체 시 이전 Object URL을 해제하고 재생을 멈춥니다. 비동기 play가 진행 중일 때 파일이 바뀌면 이전 작업의 결과는 무시합니다. 메타데이터와 가사, 현재 beat/chord도 같은 AudioEngine 및 playback state에 연결되어 있으며, 두 번째 재생 엔진은 없습니다. Phase 6 이후 개발은 별도 요청에 따라 진행합니다.

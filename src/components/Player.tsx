@@ -5,6 +5,7 @@ import { formatTime } from '../utils/format'
 import { Icon } from './Icon'
 import { TrackArtwork } from './TrackArtwork'
 import { AnalysisSummary } from './AnalysisSummary'
+import { CurrentChord } from './ChordDisplay'
 
 export function Player() {
   const { track, currentTime, duration, isPlaying, isReady, isLoading, isStarting, isBuffering, volume, muted, error } = usePlayback()
@@ -18,6 +19,7 @@ export function Player() {
         <h2 id="player-title"><span>02</span> 지금 듣기</h2>
         <span className={`playback-status ${isPlaying ? 'is-playing' : ''}`} role="status"><span />{status}</span>
       </div>
+      <CurrentChord />
       <div className="listening-stage">
         <TrackArtwork key={`${track?.id}:${track?.artworkUrl}`} artworkUrl={track?.artworkUrl} title={track?.name} isPlaying={isPlaying} />
         <div className="track-info">

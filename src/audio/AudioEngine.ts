@@ -2,6 +2,7 @@ import type { PlaybackState } from '../types/audio'
 import { readMetadata } from '../metadata/MetadataReader'
 import { mixerStore } from '../mixer/mixerStore'
 import { analysisStore } from '../analysis/analysisStore'
+import { chordStore } from '../analysis/chordStore'
 
 const initialState: PlaybackState = {
   track: null,
@@ -83,6 +84,7 @@ export class AudioEngine {
     const nextUrl = URL.createObjectURL(file)
     this.generation++
     analysisStore.clear()
+    chordStore.clear()
     this.clearMetadata()
     const audio = this.createAudio()
     audio.pause()
@@ -115,6 +117,7 @@ export class AudioEngine {
     void this.loadMetadata(file, this.generation, this.metadataAbort.signal)
     mixerStore.selectFile(file, this.generation)
     analysisStore.selectFile(file, this.generation)
+    chordStore.selectFile(file, this.generation)
     return null
   }
 
@@ -199,6 +202,7 @@ export class AudioEngine {
   dispose() {
     this.generation++
     analysisStore.clear()
+    chordStore.clear()
     mixerStore.clear()
     this.clearMetadata()
     if (this.audio) {

@@ -3,6 +3,7 @@ import { analysisStore } from '../analysis/analysisStore'
 import { getCurrentBeatIndex } from '../analysis/beatTimeline'
 import { usePlayback } from '../stores/playbackStore'
 import './AnalysisSummary.css'
+import { ChordProgression } from './ChordDisplay'
 
 export function AnalysisSummary() {
   const state = useSyncExternalStore(analysisStore.subscribe, analysisStore.getSnapshot)
@@ -31,6 +32,7 @@ export function AnalysisSummary() {
         {busy && <span className="analysis-spinner" aria-hidden="true" />}
         <span>{status}</span>
       </p>
+      <ChordProgression />
     </section>
   )
 }
