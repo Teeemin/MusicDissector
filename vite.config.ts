@@ -4,6 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  worker: { format: 'es' },
   server: {
     port: 5173,
     strictPort: true,
@@ -32,6 +33,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Includes Essentia's local ESM WASM asset for offline analysis.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,

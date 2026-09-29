@@ -1,4 +1,4 @@
-# Music Dissector · Phase 3
+# Music Dissector · Phase 4
 
 React + TypeScript + Vite 기반의 모바일 우선 로컬 음악 플레이어입니다. 기존 Vite 프로젝트를 이어서 구현했습니다.
 
@@ -15,7 +15,38 @@ React + TypeScript + Vite 기반의 모바일 우선 로컬 음악 플레이어�
 - 내장 SYLT / LRC / 일반 가사 구분 및 표시
 - 시간 가사의 현재 줄 강조, 줄 클릭 seek, 자동 스크롤과 Follow
 
-**Phase 3까지만 구현했습니다.** 6개 stem의 믹서 설정과 mock 구조를 추가했습니다. 실제 stem separation, BPM / beat / Key / chord 분석, AI 가사 동기화, 서버 연동, export는 구현하지 않았습니다. 기존 파일 선택 / 재생 / seek / 볼륨 / PWA / metadata / artwork / 가사와 헤더는 유지합니다.
+**Phase 4까지만 구현했습니다.** 실제 음원의 BPM / beat / Key 분석을 추가했습니다. 실제 stem separation, chord 분석, AI 가사 동기화, 서버 연동, export는 구현하지 않았습니다. 기존 재생 / metadata / artwork / 가사 / 믹서 설정과 파스텔 테마는 유지합니다.
+
+## Phase 4: 로컬 음악 분석
+
+파일을 선택하면 곡 정보 아래 BPM / KEY / 현재 beat가 표시됩니다. `음원 준비 → BPM 분석 → Key 분석 → 완료` 상태만 표시하며 가짜 진행률은 없습니다. BPM은 화면에서 반올림하고 내부에는 원래 소수 값을 보존합니다. Key는 C# / D# / F# / G# / A#으로 통일합니다. `다시 분석`은 캐시를 건너뛰고 갱신합니다.
+
+- 새 패키지: **`essentia.js@0.1.3`** (정확한 버전 고정, AGPL-3.0). [공식 프로젝트](https://github.com/MTG/essentia.js)의 브라우저 WASM 빌드와 실제 설치된 ES API를 사용합니다. 간접 의존성 `node-wav@0.0.2`는 브라우저 번들에서 사용하지 않습니다.
+- BPM / beat: [RhythmExtractor2013](https://essentia.upf.edu/reference/std_RhythmExtractor2013.html)의 `multifeature`, 40–208 BPM. 이 알고리즘이 요구하는 44,100 Hz로 Web Audio 디코딩/리샘플링 후 채널 평균을 사용합니다. 결과 ticks는 곡 시작 기준 초 단위이며 BPM으로 균일한 가짜 beat를 생성하지 않습니다.
+- Key: [KeyExtractor](https://essentia.upf.edu/reference/std_KeyExtractor.html)의 전체 곡 HPCP / `bgate` 프로파일, 기본 4096 frame/hop, 440 Hz 튜닝. 시간별 modulation/chord는 분석하지 않습니다.
+- 무음/2초 미만은 값을 표시하지 않습니다. rhythm native confidence < 1, key strength < 0.5이면 해당 값을 `--`로 둡니다. 이 기준은 보수적인 표시 정책이며, native score를 확률이나 정확도 백분율로 해석하지 않습니다. 실제 음악의 반/배속 BPM, 상대 장·단조 혼동 등 추정 한계는 남아 있습니다.
+- 캐시: IndexedDB `music-dissector-analysis/results`. 파일명·크기·lastModified와 시작/중간/끝 최대 192 KiB의 SHA-256을 결합합니다. 전체 파일을 해시하지 않으며, 샘플 영역 밖만 수정하고 identity도 보존한 파일까지 완전히 구분하는 content hash는 아닙니다. 분석 버전이 key와 결과에 포함되어 알고리즘 변경 시 이전 캐시는 사용하지 않습니다. 저장 내용은 결과뿐이며 음원/파형은 저장하지 않습니다. 저장 차단/할당량 오류가 나도 분석과 재생은 가능합니다.
+- 성능: 무거운 WASM 계산은 전용 Worker, mono buffer는 transferable로 전달합니다. JS downmix는 65,536 samples마다 UI에 실행을 양보합니다. 분석 후 native vector와 Worker를 해제하고, 곡 교체/재분석/dispose에서 Worker를 종료합니다. native decode는 중간 취소 API가 없어 직렬화하고 취소된 대기 작업과 늦은 결과를 무시합니다. 분석용 OfflineAudioContext는 출력에 연결되지 않으며 재생 엔진/clock은 기존 한 개입니다.
+- 모바일 메모리 보호: 입력 256 MiB 초과는 분석을 생략합니다. 디코딩 후 15분 또는 PCM 256 MiB 초과도 분석하지 않습니다. 디코딩은 브라우저 API 특성상 전체 버퍼를 일시적으로 필요로 하므로 압축률이 높은 긴 파일은 이 사후 한계 검사 전에 메모리를 사용할 수 있습니다. Worker 계산 제한은 180초이며 실패해도 원본 재생은 유지됩니다.
+- WASM 포함 모든 분석 코드는 앱과 함께 로컬 제공/오프라인 precache됩니다. CDN이나 음원 업로드는 없습니다. 번들에는 약 2.56 MB의 Essentia WASM 내장 ESM asset이 추가됩니다.
+
+### Phase 4 파일
+
+| 파일 | 역할 |
+| --- | --- |
+| `src/analysis/analysisTypes.ts`, `essentia.d.ts` | 결과/상태 계약, 버전, 검증, 설치 API 타입 |
+| `src/analysis/audioDecode.ts`, `MusicAnalysisEngine.ts` | 분석 전용 decode/downmix, Worker와 취소/시간 제한 |
+| `src/workers/musicAnalysis.worker.ts` | 실제 Essentia BPM/beat/Key 계산, native memory 정리 |
+| `src/analysis/analysisCache.ts`, `analysisStore.ts` | fingerprint, IndexedDB, 재분석, 파일 교체/경쟁 조건 차단 |
+| `src/analysis/beatTimeline.ts` | 기존 currentTime의 현재 beat 이진 탐색 |
+| `src/components/AnalysisSummary.tsx`, `AnalysisSummary.css` | 작은 결과/상태/재분석 영역 |
+| `src/components/Player.tsx`, `src/audio/AudioEngine.ts` | 표시, 파일 선택/dispose 연결 |
+| `vite.config.ts`, `package.json`, `package-lock.json` | ESM Worker, WASM offline cache, 의존성 |
+| `tests/analysis.spec.ts`, `tests/phase4.spec.ts`, `tests/fixtures/analysisAudio.ts` | mock engine 단위 테스트와 실제 파형/WASM 브라우저 테스트 |
+
+Phase 4 테스트는 실제 120 BPM / C Major 합성 PCM을 22.05 kHz에서 44.1 kHz로 리샘플링하여 결과와 beat 시간축을 확인합니다. 별도 mock 테스트는 결과 반올림, 캐시 재사용/갱신, 곡 교체, 지연된 결과/오류/단계, 저장 실패 및 재생 유지를 검증합니다. 무음, 오프라인 신규 분석, CPU 4배 감속 상태에서 재생/seek 및 412→800px 화면 변경도 검사합니다. Galaxy Z Fold7 실기기 성능과 다양한 실제 곡의 정확도는 별도 확인이 필요합니다.
+
+최종 검증(2026-09-29): `npm run build`, `npm run lint` 통과. 전체 Playwright **61개 통과**(기존 49개 + Phase 4 12개), 실패/건너뜀 없음. 실제 24초 fixture에서 화면 BPM 120, C Major, beat 47개를 확인했습니다. CPU 4배 감속 Chromium의 해당 샘플 측정은 약 2.53초였고, 테스트 파일 전달 이후 관측 구간의 최대 프레임 간격은 약 33.4ms, 50ms 이상 long task는 0개였습니다. 이는 테스트 환경의 합성 샘플 결과이며 실기기/긴 곡 처리 시간 보장은 아닙니다.
 
 ## Phase 3: Stem Mixer
 
@@ -167,4 +198,4 @@ Phase 3 테스트는 6개 채널, 볼륨 범위, Mute 우선 규칙, Solo / mult
 
 한 곡의 재생 시간은 HTMLAudioElement 하나가 관리하며, 전역 snapshot을 React 컴포넌트에서 구독합니다. 재생 버튼의 사용자 동작 안에서 AudioContext를 생성 / resume하고 `MediaElementAudioSourceNode → destination`으로 연결합니다. Web Audio API가 없는 브라우저는 HTMLAudioElement 기본 출력으로 재생합니다.
 
-파일을 통째로 AudioBuffer로 디코딩하지 않아 긴 음악을 위한 메모리 복사를 피합니다. 파일 교체 시 이전 Object URL을 해제하고 재생을 멈춥니다. 비동기 play가 진행 중일 때 파일이 바뀌면 이전 작업의 결과는 무시합니다. 메타데이터와 가사도 같은 AudioEngine 및 playback state에 연결되어 있으며, 두 번째 재생 엔진은 없습니다. Phase 4 이후 개발은 별도 요청에 따라 진행합니다.
+재생 경로는 파일을 통째로 AudioBuffer로 디코딩하지 않습니다. Phase 4 분석만 별도 임시 버퍼를 사용합니다. 파일 교체 시 이전 Object URL을 해제하고 재생을 멈춥니다. 비동기 play가 진행 중일 때 파일이 바뀌면 이전 작업의 결과는 무시합니다. 메타데이터와 가사, 현재 beat도 같은 AudioEngine 및 playback state에 연결되어 있으며, 두 번째 재생 엔진은 없습니다. Phase 5 이후 개발은 별도 요청에 따라 진행합니다.

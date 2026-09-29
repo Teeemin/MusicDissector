@@ -4,6 +4,7 @@ import { usePlayback } from '../stores/playbackStore'
 import { formatTime } from '../utils/format'
 import { Icon } from './Icon'
 import { TrackArtwork } from './TrackArtwork'
+import { AnalysisSummary } from './AnalysisSummary'
 
 export function Player() {
   const { track, currentTime, duration, isPlaying, isReady, isLoading, isStarting, isBuffering, volume, muted, error } = usePlayback()
@@ -26,6 +27,7 @@ export function Player() {
           {track?.album && <p className="track-album">{track.album}</p>}
           <p className="track-format">{track ? `${track.format} AUDIO · 로컬 파일` : '파일을 선택하면 이곳에서 재생할 수 있어요.'}</p>
         </div>
+        <AnalysisSummary />
       </div>
 
       {error && <p className="error-message player-error" role="alert"><Icon name="info" />{error}</p>}

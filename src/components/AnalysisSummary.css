@@ -1,0 +1,11 @@
+.analysis-summary { width: 100%; max-width: 360px; margin: 18px auto 0; padding: 14px 16px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--bg-surface-raised); text-align: left; }
+.analysis-values { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 0; }
+.analysis-values dt { color: var(--text-secondary); font-size: 10px; letter-spacing: 1px; }
+.analysis-values dd { margin: 5px 0 0; color: var(--text-primary); font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.analysis-details { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; color: var(--text-secondary); font-size: 11px; font-variant-numeric: tabular-nums; }
+.analysis-details button { min-height: 44px; padding: 6px 10px; border-radius: 7px; background: transparent; color: var(--accent-strong); font-size: 11px; }
+.analysis-details button:hover:not(:disabled) { background: var(--bg-hover); }
+.analysis-details button:disabled { color: var(--text-muted); }
+.analysis-status { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; }
+.analysis-spinner { flex-shrink: 0; width: 12px; height: 12px; border: 2px solid var(--blue-100); border-top-color: var(--accent-strong); border-radius: 50%; animation: analysis-spin .9s linear infinite; }
+@keyframes analysis-spin { to { transform: rotate(360deg); } }
