@@ -1,5 +1,6 @@
 import { MockStemSeparationEngine } from '../separation/MockStemSeparationEngine'
 import type { StemSeparationEngine } from '../separation/StemSeparationEngine'
+import type { StemResult } from '../separation/StemSeparationEngine'
 import { createChannels, withPreset } from './mixerRules'
 import { STEM_DEFINITIONS } from './mixerTypes'
 import type { MixerPresetId, MixerState, StemId } from './mixerTypes'
@@ -52,6 +53,23 @@ export class MixerStore {
     if (this.state.trackId === null || !Number.isFinite(volume)) return
     const channels = this.state.channels
     this.update({ ...this.state, channels: { ...channels, [id]: { ...channels[id], volume: Math.min(1, Math.max(0, volume)) } } })
+  }
+
+  setSeparated(result: Extract<StemResult, { processed: true }>, trackId: number) {
+    if (this.state.trackId !== trackId) return false
+    this.abort?.abort()
+    const channels = { ...this.state.channels }
+    for (const { id } of STEM_DEFINITIONS) channels[id] = { ...channels[id], source: result.stems[id], status: 'ready', error: null }
+    this.update({ ...this.state, channels, separationStatus: 'ready', error: null })
+    return true
+  }
+
+  clearSources(trackId: number) {
+    if (this.state.trackId !== trackId) return
+    this.abort?.abort()
+    const channels = { ...this.state.channels }
+    for (const { id } of STEM_DEFINITIONS) channels[id] = { ...channels[id], source: null, status: 'unprocessed' }
+    this.update({ ...this.state, channels, separationStatus: 'unprocessed' })
   }
 
   toggleMute(id: StemId) { this.toggle(id, 'muted') }

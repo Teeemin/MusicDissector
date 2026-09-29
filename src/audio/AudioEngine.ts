@@ -3,8 +3,11 @@ import { readMetadata } from '../metadata/MetadataReader'
 import { mixerStore } from '../mixer/mixerStore'
 import { analysisStore } from '../analysis/analysisStore'
 import { chordStore } from '../analysis/chordStore'
+import { separationStore } from '../separation/separationStore'
+import { StemAudioEngine } from './StemAudioEngine'
 
 const initialState: PlaybackState = {
+  mode: 'original',
   track: null,
   currentTime: 0,
   duration: 0,
@@ -18,7 +21,7 @@ const initialState: PlaybackState = {
   error: null,
 }
 
-/** One media timeline. Stream local files without decoding a whole song into RAM. */
+/** One published timeline: streamed original or synchronized stems on one context. */
 export class AudioEngine {
   private audio: HTMLAudioElement | null = null
   private context: AudioContext | null = null
@@ -29,6 +32,10 @@ export class AudioEngine {
   private generation = 0
   private state: PlaybackState = initialState
   private listeners = new Set<() => void>()
+  private stems: StemAudioEngine | null = null
+  private ticker: ReturnType<typeof setInterval> | null = null
+  private mixerUnsubscribe: (() => void) | null = null
+  private transportGeneration = 0
 
   getSnapshot = (): PlaybackState => this.state
 
@@ -39,6 +46,7 @@ export class AudioEngine {
 
   private update(patch: Partial<PlaybackState>) {
     this.state = { ...this.state, ...patch }
+    if (patch.volume !== undefined || patch.muted !== undefined) this.stems?.setVolume(this.state.volume, this.state.muted)
     this.listeners.forEach((listener) => listener())
   }
 
@@ -48,12 +56,12 @@ export class AudioEngine {
     audio.preload = 'metadata'
     audio.addEventListener('loadedmetadata', () => this.readDuration())
     audio.addEventListener('durationchange', () => this.readDuration())
-    audio.addEventListener('timeupdate', () => this.update({ currentTime: audio.currentTime }))
+    audio.addEventListener('timeupdate', () => { if (this.state.mode === 'original') this.update({ currentTime: audio.currentTime }) })
     audio.addEventListener('canplay', () => this.update({ isLoading: false, isBuffering: false, isReady: true }))
-    audio.addEventListener('playing', () => this.update({ isPlaying: true, isStarting: false, isBuffering: false }))
-    audio.addEventListener('waiting', () => this.update({ isBuffering: true }))
-    audio.addEventListener('pause', () => this.update({ isPlaying: false, isBuffering: false }))
-    audio.addEventListener('ended', () => this.update({ isPlaying: false, isStarting: false, currentTime: audio.duration }))
+    audio.addEventListener('playing', () => { if (this.state.mode === 'original') this.update({ isPlaying: true, isStarting: false, isBuffering: false }) })
+    audio.addEventListener('waiting', () => { if (this.state.mode === 'original') this.update({ isBuffering: true }) })
+    audio.addEventListener('pause', () => { if (this.state.mode === 'original') this.update({ isPlaying: false, isBuffering: false }) })
+    audio.addEventListener('ended', () => { if (this.state.mode === 'original') this.update({ isPlaying: false, isStarting: false, currentTime: audio.duration }) })
     audio.addEventListener('volumechange', () => this.update({ volume: audio.volume, muted: audio.muted }))
     audio.addEventListener('error', () => {
       if (!audio.error || !this.objectUrl) return
@@ -82,6 +90,9 @@ export class AudioEngine {
     if (file.size === 0) return '빈 파일은 재생할 수 없어요. 다른 음악 파일을 선택해 주세요.'
 
     const nextUrl = URL.createObjectURL(file)
+    this.pause()
+    this.releaseStems()
+    separationStore.clear()
     this.generation++
     analysisStore.clear()
     chordStore.clear()
@@ -116,6 +127,17 @@ export class AudioEngine {
     this.metadataAbort = new AbortController()
     void this.loadMetadata(file, this.generation, this.metadataAbort.signal)
     mixerStore.selectFile(file, this.generation)
+    separationStore.selectFile(file, this.generation)
+    if (!this.mixerUnsubscribe) this.mixerUnsubscribe = mixerStore.subscribe(() => {
+      const mix = mixerStore.getSnapshot()
+      if (mix.separationStatus === 'ready') this.stems?.updateMix(mix)
+      else if (this.stems || this.state.mode === 'stems') {
+        const time = this.stems?.currentTime ?? this.state.currentTime
+        this.pause(); this.releaseStems()
+        this.update({ mode: 'original' })
+        if (this.audio && this.state.isReady) this.audio.currentTime = time
+      }
+    })
     analysisStore.selectFile(file, this.generation)
     chordStore.selectFile(file, this.generation)
     return null
@@ -156,6 +178,8 @@ export class AudioEngine {
     const audio = this.audio
     if (!audio || !this.state.isReady || this.state.isStarting) return
     const generation = this.generation
+    const transport = ++this.transportGeneration
+    const mode = this.state.mode
     this.update({ isStarting: true, error: null })
     try {
       // Create and resume in the user's play gesture (mobile autoplay policy).
@@ -166,28 +190,79 @@ export class AudioEngine {
         this.source.connect(this.context.destination)
       }
       if (this.context?.state === 'suspended') await this.context.resume()
-      if (generation !== this.generation) return
+      if (generation !== this.generation || transport !== this.transportGeneration) return
+      if (mode === 'stems') {
+        this.ensureStems()
+        const time = this.state.currentTime >= this.state.duration ? 0 : this.state.currentTime
+        this.stems!.play(time)
+        this.update({ isPlaying: true, isStarting: false, isBuffering: false, currentTime: time })
+        if (this.ticker) clearInterval(this.ticker)
+        this.ticker = setInterval(() => {
+          if (!this.stems || this.state.mode !== 'stems') return
+          const currentTime = this.stems.currentTime
+          if (currentTime >= this.stems.duration) {
+            this.stems.pause(); if (this.ticker) clearInterval(this.ticker); this.ticker = null
+            this.update({ currentTime: this.state.duration, isPlaying: false })
+          }
+          else this.update({ currentTime })
+        }, 50)
+        return
+      }
       if (audio.ended || audio.currentTime >= this.state.duration) audio.currentTime = 0
       await audio.play()
+      if (this.state.mode !== 'original') audio.pause()
     } catch {
-      if (generation === this.generation) {
+      if (generation === this.generation && transport === this.transportGeneration) {
         this.update({ error: '재생을 시작하지 못했어요. 재생 버튼을 다시 누르거나 다른 파일을 선택해 주세요.', isPlaying: false })
       }
     } finally {
-      if (generation === this.generation) this.update({ isStarting: false })
+      if (generation === this.generation && transport === this.transportGeneration) this.update({ isStarting: false })
     }
   }
 
-  pause() { this.audio?.pause() }
+  pause() {
+    this.transportGeneration++
+    if (this.ticker) clearInterval(this.ticker)
+    this.ticker = null
+    if (this.state.mode === 'stems' && this.stems) this.update({ currentTime: this.stems.pause() })
+    this.audio?.pause()
+    this.update({ isPlaying: false, isStarting: false, isBuffering: false })
+  }
+
+  private ensureStems() {
+    const mix = mixerStore.getSnapshot()
+    if (!this.context || mix.trackId !== this.state.track?.id || mix.separationStatus !== 'ready') throw new Error('Stems unavailable')
+    if (!this.stems) this.stems = new StemAudioEngine(this.context, mix)
+    this.stems.setVolume(this.state.volume, this.state.muted)
+  }
+
+  private releaseStems() {
+    if (this.ticker) clearInterval(this.ticker)
+    this.ticker = null; this.stems?.dispose(); this.stems = null
+  }
+
+  async setMode(mode: 'original' | 'stems') {
+    if (mode === this.state.mode || !this.state.track) return
+    if (mode === 'stems' && mixerStore.getSnapshot().separationStatus !== 'ready') return
+    const playing = this.state.isPlaying || this.state.isStarting
+    const time = this.state.mode === 'stems' ? this.stems?.currentTime ?? this.state.currentTime : this.audio?.currentTime ?? 0
+    this.pause()
+    this.update({ mode, currentTime: time })
+    if (mode === 'original' && this.audio) this.audio.currentTime = time
+    if (playing) await this.play()
+  }
 
   seek(seconds: number) {
     if (!this.audio || !this.state.isReady || !Number.isFinite(seconds)) return
     const time = Math.max(0, Math.min(seconds, this.state.duration))
-    this.audio.currentTime = time
+    if (this.state.mode === 'stems') {
+      this.stems?.seek(time)
+      if (time >= this.state.duration) this.update({ isPlaying: false })
+    } else this.audio.currentTime = time
     this.update({ currentTime: time })
   }
 
-  skip(seconds: number) { this.seek((this.audio?.currentTime ?? 0) + seconds) }
+  skip(seconds: number) { this.seek((this.state.mode === 'stems' ? this.stems?.currentTime ?? this.state.currentTime : this.audio?.currentTime ?? 0) + seconds) }
 
   setVolume(volume: number) {
     if (!this.audio) return
@@ -201,6 +276,8 @@ export class AudioEngine {
 
   dispose() {
     this.generation++
+    this.pause(); this.releaseStems(); separationStore.clear()
+    this.mixerUnsubscribe?.(); this.mixerUnsubscribe = null
     analysisStore.clear()
     chordStore.clear()
     mixerStore.clear()

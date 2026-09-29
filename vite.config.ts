@@ -34,8 +34,8 @@ export default defineConfig({
       },
       workbox: {
         // Includes Essentia's local ESM WASM asset for offline analysis.
-        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
-        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+        maximumFileSizeToCacheInBytes: 32 * 1024 * 1024,
+        globPatterns: ['**/*.{js,mjs,wasm,css,html,svg,png,webmanifest}'],
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
         // Only the app shell is precached. User audio stays in local blob URLs.

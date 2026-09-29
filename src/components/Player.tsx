@@ -6,9 +6,11 @@ import { Icon } from './Icon'
 import { TrackArtwork } from './TrackArtwork'
 import { AnalysisSummary } from './AnalysisSummary'
 import { CurrentChord } from './ChordDisplay'
+import { useMixer } from '../mixer/useMixer'
 
 export function Player() {
-  const { track, currentTime, duration, isPlaying, isReady, isLoading, isStarting, isBuffering, volume, muted, error } = usePlayback()
+  const { track, currentTime, duration, isPlaying, isReady, isLoading, isStarting, isBuffering, volume, muted, error, mode } = usePlayback()
+  const { separationStatus } = useMixer()
   const progress = duration ? Math.min(100, currentTime / duration * 100) : 0
   const status = error ? '재생 오류' : isLoading ? '불러오는 중' : isStarting || isBuffering ? '재생 준비 중' : isPlaying ? '재생 중' : track ? '재생 준비 완료' : '음악을 기다리는 중'
   const controlsDisabled = !isReady
@@ -20,6 +22,10 @@ export function Player() {
         <span className={`playback-status ${isPlaying ? 'is-playing' : ''}`} role="status"><span />{status}</span>
       </div>
       <CurrentChord />
+      {separationStatus === 'ready' && <div className="playback-mode" role="group" aria-label="재생 소스">
+        <button type="button" aria-pressed={mode === 'original'} onClick={() => void audioEngine.setMode('original')}>Original</button>
+        <button type="button" aria-pressed={mode === 'stems'} onClick={() => void audioEngine.setMode('stems')}>Stem Mix</button>
+      </div>}
       <div className="listening-stage">
         <TrackArtwork key={`${track?.id}:${track?.artworkUrl}`} artworkUrl={track?.artworkUrl} title={track?.name} isPlaying={isPlaying} />
         <div className="track-info">
@@ -50,7 +56,7 @@ export function Player() {
             <label className="sr-only" htmlFor="volume">음량</label>
             <input id="volume" className="range volume-range" type="range" min="0" max="1" step="0.01" value={muted ? 0 : volume} disabled={!track} onChange={(event) => audioEngine.setVolume(Number(event.target.value))} style={{ '--progress': `${muted ? 0 : volume * 100}%` } as CSSProperties} aria-valuetext={`${muted ? 0 : Math.round(volume * 100)}%`} />
           </div>
-          <span className="original-audio"><span /> ORIGINAL AUDIO</span>
+          <span className="original-audio"><span /> {mode === 'stems' ? 'STEM MIX' : 'ORIGINAL AUDIO'}</span>
         </div>
       </div>
     </section>

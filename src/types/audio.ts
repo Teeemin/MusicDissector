@@ -15,6 +15,7 @@ export interface LocalTrack {
 }
 
 export interface PlaybackState {
+  mode: 'original' | 'stems'
   track: LocalTrack | null
   currentTime: number
   duration: number

@@ -1,4 +1,4 @@
-# Music Dissector · Phase 5
+# Music Dissector · Phase 6
 
 React + TypeScript + Vite 기반의 모바일 우선 로컬 음악 플레이어입니다. 기존 Vite 프로젝트를 이어서 구현했습니다.
 
@@ -15,7 +15,80 @@ React + TypeScript + Vite 기반의 모바일 우선 로컬 음악 플레이어�
 - 내장 SYLT / LRC / 일반 가사 구분 및 표시
 - 시간 가사의 현재 줄 강조, 줄 클릭 seek, 자동 스크롤과 Follow
 
-**Phase 5까지만 구현했습니다.** 실제 음원의 BPM / beat / Key / chord 분석과 시간 가사 연동을 제공합니다. 실제 stem separation, AI 가사 동기화, 서버 연동, export는 구현하지 않았습니다. 기존 재생 / metadata / artwork / 가사 / 믹서 설정과 파스텔 테마는 유지합니다.
+**Phase 6 범위까지 구현했습니다.** 기존 재생 / metadata / artwork / 가사 / BPM / beat / Key / chord / 믹서 설정과 파스텔 테마를 유지하며 로컬 WebGPU AI stem separation을 추가합니다. AI 가사 동기화, 서버 연동, export 등 Phase 7 기능은 포함하지 않습니다. 아래 이전 Phase 설명은 각 단계의 구현 기록이며, 현재 분리/재생 동작은 다음 Phase 6 설명을 기준으로 합니다.
+
+## Phase 6: 실제 AI Stem Separation
+
+1. HTTPS 또는 localhost의 WebGPU 지원 Chrome에서 음원을 선택합니다.
+2. **모델 다운로드**를 눌러 최초 한 번 모델을 기기에 저장합니다. 자동으로 모델을 받거나 음악을 업로드하지 않습니다.
+3. **분리 시작**을 누릅니다. 기존 BPM/chord 자동 분석이 진행 중이면 먼저 끝나기를 기다립니다. 모델 로드, 오디오 준비, 청크 추론, 결과 준비를 구분하며 다운로드는 실제 수신 bytes, 분리는 완료 청크 수를 표시합니다. 첫 청크의 shader compilation이 오래 걸릴 수 있으며 가짜 진행률을 만들지 않습니다.
+4. 완료 후 플레이어의 **Original / Stem Mix**로 같은 위치에서 A/B 비교합니다. Original은 원본 그대로, Stem Mix는 실제 여섯 결과 버퍼입니다. Stem Mix에서 볼륨, Mute, Solo/multi-solo, 기존 5개 프리셋이 실제 소리에 적용됩니다. 믹서의 Original 프리셋은 모든 stem 설정 초기화이며 플레이어의 원본 소스 선택과 구분됩니다.
+5. **Guitar Solo**, **No Guitar**, Guitar 볼륨으로 기타 분리/감쇠를 확인합니다. 새 파일을 선택하면 이전 작업, 결과와 믹서 설정이 초기화됩니다. 새로고침 시 모델만 남고 음원과 stem은 다시 선택/분리해야 합니다.
+
+분리 후 Original을 듣는 상태에서 채널 볼륨 / Mute / Solo / 프리셋을 조작하면 **같은 위치의 Stem Mix로 자동 전환**해 설정을 바로 들을 수 있습니다. 일시 정지 상태에서는 소스만 전환하고 재생은 시작하지 않습니다. 믹서 안내에 현재 소스를 표시하며 **Stem Mix로 듣기** 버튼도 제공합니다. 분리 전에는 기존 설정 미리보기 동작을 유지합니다. 원본 A/B 비교는 재생기의 Original 버튼으로 선택합니다.
+
+### 모델과 런타임
+
+- 참고 구현: [elicwhite/bs-roformer-web](https://github.com/elicwhite/bs-roformer-web), 검토 commit `c6047cd28c41f803339e9b8a5775a56932de7157`. JS STFT/iSTFT와 radix-2 FFT를 타입화하여 재사용하고 iSTFT의 잘못 지워지던 conjugate bin을 수정했습니다. 별도 왕복 복원 테스트로 확인합니다.
+- 모델: [BS-RoFormer-SW 6-stem FP16 ONNX](https://huggingface.co/elicwhite/bs-roformer-sw-6stem-onnx). [고정 revision 다운로드 URL](https://huggingface.co/elicwhite/bs-roformer-sw-6stem-onnx/resolve/a744f80957374e1735ad70fa122670b7961da8cc/bs_roformer_sw_6stem_fp16.onnx).
+- 크기 **352,778,874 bytes = 약 336.4 MiB / 352.8 MB**. SHA-256 `d3d2bac77a7023282cb5f35a5807179e34076b60589867b572275f1a8ec36444`. Git/dist에는 모델을 포함하지 않습니다. 브라우저는 고정 revision, 정확한 byte 수와 완료 marker를 검사하며 전체 SHA 해시 재계산은 하지 않습니다.
+- 원본 학습 그래프가 아닌 공개 프로젝트의 WebGPU 대응 export입니다. axes 정규화, 큰 Split/Concat 분할로 Chrome의 storage buffer 제한에 대응합니다. FP16 **저장 weight**이며 입력/출력과 JS DSP는 float32입니다.
+- 새 dependency **`onnxruntime-web@1.24.0-dev.20251116-b39e144322`**, MIT. 최신 버전 추정 대신 공개 구현과 같은 버전을 정확히 고정했습니다. 이 버전의 `/webgpu` entry는 native Asyncify WASM을 요구하므로 upstream과 동일한 **`onnxruntime-web/all` + JSEP WASM**을 사용합니다. `executionProviders: ['webgpu']`만 설정하며 WebGL/CPU 전체 추론 fallback을 제공하지 않습니다. ORT가 배치하는 일부 보조 연산은 WASM에서 실행될 수 있습니다.
+- JSEP mjs/wasm은 Vite가 로컬 assets로 빌드하며 PWA에서 precache합니다. 앱 shell은 약 28 MiB 커집니다. 모델은 service worker precache와 분리된 OPFS입니다. WASM `numThreads=1`로 SharedArrayBuffer와 COOP/COEP 헤더 없이 동작합니다. HTTPS는 production 필수입니다.
+- `navigator.gpu`, 실제 adapter의 **shader-f16** 지원, storage buffer 한도, secure context, OPFS, Worker, OfflineAudioContext를 검사합니다. Worker에서도 같은 조건을 재검사합니다. 실제 모델 호환성/메모리는 명시적 분리 시 session 생성으로 확인합니다. GPU validation/device lost와 유효한 입력의 전부 0인 출력도 오류로 처리합니다. 지원 실패 시 분리만 비활성화하고 기존 플레이어/가사/분석을 유지합니다.
+
+### 처리 규격과 메모리
+
+- OfflineAudioContext로 **44,100 Hz** decode/resample. stereo를 유지하고 mono는 양 채널에 복제합니다. 다채널 음원은 지원하지 않습니다.
+- **176,400 samples / 4초** 고정 segment, **44,100 samples / 1초(25%)** overlap, **132,300 samples / 3초** stride. 마지막 청크는 zero padding 후 원래 길이로 자릅니다. 경계에는 상보적 linear crossfade/overlap-add를 적용합니다.
+- **FFT 2048 / hop 512 / periodic Hann 2048 / center reflect / normalized=false**. 입력 `spec_real`, `spec_imag`: `[1, 2, 1025, 345]`. 출력 `out_spec_real`, `out_spec_imag`: `[1, 6, 2, 1025, 345]`. 출력 순서 `bass, drums, other, vocals, guitar, piano`를 기존 `others` 포함 여섯 채널 ID에 명시적으로 매핑합니다.
+- 하나의 Worker에서 STFT → WebGPU inference → iSTFT → overlap-add를 순차 실행합니다. 입력/출력 tensor를 매 청크 dispose하고 결과 transfer 후 session/Worker를 해제합니다. 분리 중 UI 스크롤/취소는 main thread에서 계속 처리합니다. 백그라운드 전환 시 다음 청크 전 대기합니다. 이미 진행 중인 GPU 연산을 숨김 전환만으로 중단하지는 않습니다.
+- **현재 상한은 6분(360초)·128 MiB 입력**입니다. 6분까지는 bitrate와 관계없이 허용하며, 길이를 초과하면 분리 버튼 옆에 붉은 글씨로 `최대 해부 길이는 6분입니다`를 표시합니다. 완성 stem 여섯 개를 Web Audio에 유지하므로 6분 PCM만 약 762 MB이며 모델·GPU 임시 버퍼가 추가됩니다. 상한은 모든 모바일에서의 성공을 보증하지 않습니다. 더 긴 곡의 디스크 기반 transport는 이번 범위에 넣지 않았습니다.
+- AbortController + track ID + Worker terminate로 취소/파일 교체 시 늦은 결과를 차단합니다. 재분리 전 이전 stem을 비우며 원본으로 돌아갑니다. 기존 artwork/원본 Object URL 해제도 유지합니다. 모델은 앱의 한 분리 작업에서 하나만 로드합니다. 여러 브라우저 탭에서 동시에 분리하는 것은 피하세요.
+- WebGPU 미지원 / 다운로드·저장 실패 / 모델 로드 / 오디오 decode / 메모리·quota / inference / 취소를 구분합니다. 브라우저나 OS가 프로세스 자체를 강제 종료하는 메모리 부족은 JavaScript에서 복구할 수 없습니다.
+
+### 캐시와 공통 재생 시계
+
+OPFS `music-dissector-models/<revision>-<filename>`에 스트리밍 저장합니다. `.part` 임시 파일과 정확한 크기 검증 후 최종 파일과 완료 marker를 생성합니다. 실패/취소된 partial은 ready로 취급하지 않습니다. 다운로드 중 임시·최종 파일이 함께 있을 수 있어 약 2.1배 여유 공간을 검사합니다. 재시작은 이어받기가 아닌 처음부터입니다. **모델 삭제**는 파일/marker/partial을 제거합니다. 브라우저 저장소 삭제/eviction 시 다시 다운로드하며 영구 저장 요청이 거절되어도 앱은 동작합니다.
+
+기존 AudioEngine의 **동일 AudioContext**에서 6개 AudioBufferSourceNode → 개별 GainNode → master GainNode → destination으로 연결합니다. 모두 같은 `context.currentTime + 0.02`와 동일 offset으로 시작하며 seek/pause/resume 시 함께 재생성합니다. 믹서 gain은 짧게 smoothing합니다. Original의 HTMLAudioElement는 Stem Mix에서 멈추며, UI의 `playback.currentTime`은 선택한 transport 하나에서만 갱신합니다. 가사/chord/beat는 계속 이 공통 state를 사용합니다.
+
+### Phase 6 검증
+
+2026-09-30 검증 기록:
+
+- `npm run build`, `npm run lint` 성공. 빌드에는 ONNX Runtime 의존성 내부의 direct `eval`에 대한 bundler 경고가 남으며 오류는 없습니다.
+- 기존 86개 + Phase 6 11개 = **97개 자동 테스트 통과**. 320/412/800px 반응형, 오프라인 기존 분석/재생 회귀 포함.
+- **실제 FP16 모델의 성공 검증은 미완료**입니다. 실물 GPU 없는 Linux Chromium에서 모델 파일의 크기/SHA를 확인하고 4초 합성 WAV로 실제 ONNX 실행을 시도했습니다. 사용 가능한 adapter는 `google / swiftshader`, WebGPU 자체는 가능하지만 `shader-f16`이 없습니다. FP16 Cast shader 오류로 6개 출력이 모두 0이어서 실패로 판정했습니다. 이 결과를 분리 성공이나 품질 검증으로 계산하지 않습니다.
+- 발견한 문제를 반영해 main/Worker 양쪽에서 shader-f16을 검사하고, GPU validation/device lost 및 비정상 무음 결과를 실패 처리합니다. 최종 빌드의 미지원 GPU 안내를 확인했습니다. 시스템 Mesa/Vulkan 선택도 시도했으나 이 Chromium 환경에서는 같은 SwiftShader만 선택되었습니다.
+- **FP16 지원 실제 Chrome/Fold7에서 첫 분리 성공, 재실행 캐시, 분리 품질·속도·장시간 메모리 확인이 남습니다.** 아래 스크립트로 재현할 수 있습니다. 소프트웨어 GPU 추론과 전체 회귀 테스트를 동시에 실행하면 이 환경에서 자원 경합으로 timeout이 발생하므로 각각 독립 실행했습니다.
+
+```sh
+npm run build
+npm run lint
+npm run test:e2e
+```
+
+`tests/separation.spec.ts`는 DSP 왕복 복원, overlap 경계, 모델 상태/취소/경쟁 조건과 채널 매핑을 검사합니다. `tests/phase6.spec.ts`는 ONNX Worker만 합성 결과로 대체하고 실제 브라우저 OPFS, decode/resample, Web Audio 6채널, 출력 신호, Guitar Solo/No Guitar, 볼륨/multi-solo, 공통 seek와 가사, A/B, 파일 교체를 검사합니다. 일반 테스트는 거대한 모델을 다운로드하지 않습니다.
+
+실제 모델을 별도로 다운로드한 뒤 SHA를 확인하고 선택적 검증을 실행할 수 있습니다. 앱은 별도 터미널에서 `npm run build && npm run preview -- --port 4180`으로 실행하세요. 검사 스크립트는 입력 음원을 직접 합성하고 진짜 ONNX 결과 여섯 버퍼의 길이/채널/유한값/에너지를 검사합니다. 모델 다운로드 UI 테스트를 대체하지 않으며 외부 모델 파일을 OPFS에 미리 넣어 네트워크 재다운로드를 줄입니다.
+
+```sh
+MODEL_PATH=/absolute/path/bs_roformer_sw_6stem_fp16.onnx \
+APP_URL=http://127.0.0.1:4180 node scripts/verify-real-separation.mjs
+```
+
+`SOFTWARE_GPU=1`은 CI의 SwiftShader capability 진단 옵션이며 shader-f16이 없으면 즉시 중단합니다. 앱에서 소프트웨어 GPU를 강제하지 않습니다. 결과 JSON/스크린샷은 `/tmp/music-real-separation.*`에 기록됩니다. 합성 음원의 유효한 모델 출력을 확인하는 테스트는 실제 보컬/기타 분리 품질을 보증하지 않습니다. Fold7 실기기에서는 HTTPS PWA 설치, 처음/재실행 캐시, 실제 곡의 각 Solo와 Guitar 감쇠, 접기/펼치기, 백그라운드 복귀, 열/메모리/속도를 확인해야 합니다.
+
+### Phase 6 파일
+
+- `src/separation/{BSRoformerWebEngine,separationTypes,capabilities,modelCache,separationStore,separationPipeline}.ts`, `dsp/{fft,stft}.ts`: 모델/상태/DSP/캐시/취소
+- `src/workers/stemAudio.worker.ts`: 실제 WebGPU inference
+- `src/audio/StemAudioEngine.ts`, `AudioEngine.ts`, `src/types/audio.ts`: 공통 transport, A/B와 playback state
+- `src/components/SeparationPanel.tsx`, `SeparationPanel.css`, `StemMixer.tsx`, `Player.tsx`: 기존 영역 안의 분리 UI와 소스 선택
+- `src/mixer/mixerStore.ts`, `src/separation/StemSeparationEngine.ts`: 실제 결과와 기존 믹서 연결
+- `tests/{separation,phase6}.spec.ts`, `scripts/verify-real-separation.mjs`: 단위/브라우저/선택적 실제 모델 검사
+- `package.json`, `package-lock.json`, `vite.config.ts`, `README.md`, `THIRD_PARTY_NOTICES.md`: 런타임과 오프라인 빌드/출처
 
 ## Phase 5: 코드 진행과 가사
 
@@ -194,7 +267,7 @@ PWA의 설치 요건은 [MDN의 설치 가이드](https://developer.mozilla.org/
 9. `tests/fixtures/tagged.flac` 또는 `tagged.m4a`를 선택하면 테스트 제목 / 가수 / 앨범 / artwork와 LRC 가사가 표시됩니다. 첫 줄은 1초, 둘째 줄은 4초이며 클릭으로 이동할 수 있습니다.
 10. 시간 가사를 직접 스크롤한 뒤 **Follow**로 현재 줄에 복귀하는지 확인합니다. 일반 embedded lyrics 파일에서는 원문이 표시되며 클릭해도 재생 위치가 바뀌지 않습니다. 가사 없는 파일도 오류 없이 사용할 수 있습니다.
 11. 다른 곡으로 교체해 이전 태그 / 이미지 / 가사가 남지 않는지 확인합니다. Fold7에서 파일을 열고 접거나 펼쳐 가사 패널과 재생 컨트롤을 확인하세요.
-12. Stem Mixer에서 개별 볼륨, Mute / Solo, 여러 Solo, 5개 프리셋을 조작하세요. 원본 소리는 계속 그대로 재생되어야 합니다. 다른 곡을 선택하면 모든 채널이 100% / Mute 해제 / Solo 해제로 돌아갑니다.
+12. Stem Mixer에서 개별 볼륨, Mute / Solo, 여러 Solo, 5개 프리셋을 조작하세요. Original 소스에서는 원본 소리가 그대로이며, 분리 완료 후 Stem Mix에서 실제 stem 소리가 바뀝니다. 다른 곡을 선택하면 모든 채널이 100% / Mute 해제 / Solo 해제로 돌아갑니다.
 
 음악은 서버에 업로드하지 않으며 브라우저 캐시에도 저장하지 않습니다. 앱을 새로 열거나 새로고침하면 파일을 다시 선택해야 합니다. 오프라인 기능은 앱 화면과 코드의 캐시이며, 브라우저에서 사이트 데이터를 지우면 다시 온라인 접속이 필요합니다.
 
@@ -242,4 +315,4 @@ Phase 3 테스트는 6개 채널, 볼륨 범위, Mute 우선 규칙, Solo / mult
 
 한 곡의 재생 시간은 HTMLAudioElement 하나가 관리하며, 전역 snapshot을 React 컴포넌트에서 구독합니다. 재생 버튼의 사용자 동작 안에서 AudioContext를 생성 / resume하고 `MediaElementAudioSourceNode → destination`으로 연결합니다. Web Audio API가 없는 브라우저는 HTMLAudioElement 기본 출력으로 재생합니다.
 
-재생 경로는 파일을 통째로 AudioBuffer로 디코딩하지 않습니다. Phase 4/5 분석은 별도 임시 버퍼를 사용합니다. 파일 교체 시 이전 Object URL을 해제하고 재생을 멈춥니다. 비동기 play가 진행 중일 때 파일이 바뀌면 이전 작업의 결과는 무시합니다. 메타데이터와 가사, 현재 beat/chord도 같은 AudioEngine 및 playback state에 연결되어 있으며, 두 번째 재생 엔진은 없습니다. Phase 6 이후 개발은 별도 요청에 따라 진행합니다.
+원본 스트리밍 재생은 파일 전체 AudioBuffer 없이 동작합니다. Phase 4/5 분석은 임시 버퍼를 사용하고, Phase 6 Stem Mix는 위에서 설명한 여섯 AudioBuffer를 사용합니다. 파일 교체 시 이전 Object URL과 stem을 해제하고 재생을 멈춥니다. 비동기 작업의 이전 결과는 무시하며 메타데이터와 가사, 현재 beat/chord는 같은 AudioEngine의 playback state에 연결됩니다. Phase 7 이후 개발은 별도 요청에 따라 진행합니다.

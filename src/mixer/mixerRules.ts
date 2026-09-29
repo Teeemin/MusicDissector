@@ -8,7 +8,7 @@ export function createChannels(): StemChannels {
 }
 
 /** Mute always wins. Any Solo (including a muted Solo) excludes non-solo stems.
- * This is a future stem gain, NOT a gain applied to the current original audio.
+ * Applies only to Stem Mix; original audio bypasses these per-stem gains.
  */
 export function effectiveGain(channels: StemChannels, id: StemId): number {
   const anySolo = STEM_DEFINITIONS.some((stem) => channels[stem.id].solo)
