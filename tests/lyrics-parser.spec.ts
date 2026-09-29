@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { findActiveLine, parseEmbeddedLyrics, parseLrc } from '../src/lyrics/LyricsParser'
+import { lyricsText, parseEmbeddedLyrics, parseLrc } from '../src/lyrics/LyricsParser'
 
 test('LRC handles fractions, repeated times, sorting, offset and untimed text', () => {
   expect(parseLrc('[ar:Artist]\n[offset:500]\n[00:10.125]마지막\n[00:02.5][00:04.50]반복\n설명')).toEqual({
@@ -38,13 +38,10 @@ test('SYLT fragments join by explicit line boundaries without guessed timestamps
   ] }])).toEqual({ kind: 'synchronized', lines: [{ time: 1, text: '첫 번째 줄' }, { time: 3, text: '다음 줄' }], untimedText: '' })
 })
 
-test('active line respects boundaries, reverse seek and prelude', () => {
-  const lines = [{ time: 2, text: '첫 줄' }, { time: 4, text: '둘째' }, { time: 8, text: '끝' }]
-  expect(findActiveLine(lines, 0)).toBe(-1)
-  expect(findActiveLine(lines, 4)).toBe(1)
-  expect(findActiveLine(lines, 30)).toBe(2)
-  expect(findActiveLine(lines, 3)).toBe(0)
-  expect(findActiveLine([], 3)).toBe(-1)
+test('text projection preserves content without exposing timing controls', () => {
+  expect(lyricsText({ kind: 'none' })).toBe('')
+  expect(lyricsText({ kind: 'plain', text: '첫 줄\n\n끝' })).toBe('첫 줄\n\n끝')
+  expect(lyricsText(parseLrc('[00:01]첫 줄\n[00:03]끝\n설명'))).toBe('첫 줄\n끝\n\n설명')
 })
 
 test('LRC wins over unsupported SYLT timing and handles negative offsets', () => {

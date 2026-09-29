@@ -5,8 +5,7 @@ These are original synthetic 440 Hz tones, not songs or copyrighted recordings.
 - `tone.mp3`: 8-second tone; test helpers prepend real ID3v2.3 tags (USLT, SYLT, APIC).
 - `tagged.flac`, `tagged.m4a`: the same tone with title/artist/album, LRC lyrics, and the project's generated icon as artwork.
 - `audio.ts`: creates playable PCM WAV files with real RIFF/ID3 metadata and lyrics.
-- `analysisAudio.ts`: creates original 120 BPM transients over C-major harmonies at 22.05 kHz, or silence. Phase 4 runs the actual decoder and Essentia WASM on this audio without BPM/key tags.
-- `chordAudio.ts`: original 22-second PCM at 22.05 kHz with nine distinct C-root voicings (major, minor, dominant7, maj7, min7, sus2, sus4, dim, aug), silence and seeded broadband noise. Phase 5 checks actual Essentia-derived chords at each interval midpoint; no chord tags are embedded.
+- `analysisAudio.ts`: creates original 120 BPM transients over C-major harmonies at 22.05 kHz, or silence. Phase 4 runs the actual decoder and Essentia WASM on this audio without BPM tags.
 
 Regenerate the binary files with FFmpeg installed:
 

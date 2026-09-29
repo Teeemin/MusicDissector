@@ -17,9 +17,7 @@
 .stem-controls { display: flex; align-items: center; gap: 8px; }
 .stem-volume { flex: 1; min-width: 40px; height: 44px; }
 .stem-percentage { min-width: 37px; color: var(--text-primary); text-align: right; font: 11px ui-monospace, monospace; font-variant-numeric: tabular-nums; }
-.stem-toggle { min-width: 48px; min-height: 44px; padding: 8px; border: 1px solid var(--border-control); border-radius: 7px; background: var(--bg-surface-raised); font-size: 11px; color: var(--accent-strong); }
-.solo-toggle[aria-pressed='true'] { color: var(--accent-strong); background: var(--bg-selected); border-color: var(--border-control); }
-.mute-toggle[aria-pressed='true'] { color: var(--accent-strong); background: var(--blue-100); border-color: var(--border-control); }
+.stem-toggle { min-width: 48px; min-height: 44px; padding: 8px; border: 1px solid var(--border-control); border-radius: 7px; background: var(--button-subtle); font-size: 11px; color: var(--text-secondary); }
 .mixer-help { margin-top: 16px; font-size: 11px; }
 #player-title { scroll-margin-top: 24px; }
 @media (min-width: 700px) { .stem-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -31,5 +29,6 @@
 }
 @media (max-width: 359px) { .stem-controls { gap: 6px; } .stem-toggle { min-width: 44px; padding: 6px; } .stem-percentage { min-width: 32px; font-size: 10px; } }
 
-.preset-button[aria-pressed='true']:hover:not(:disabled), .stem-toggle[aria-pressed='true']:hover:not(:disabled) { background: var(--bg-hover); }
+.preset-button[aria-pressed='true']:hover:not(:disabled) { background: var(--bg-hover); }
 .preset-button:active:not(:disabled), .stem-toggle:active:not(:disabled) { background: var(--bg-hover); color: var(--accent-strong); }
+.stem-toggle[aria-pressed='true']:not(:disabled), .stem-toggle[aria-pressed='true']:hover:not(:disabled), .stem-toggle[aria-pressed='true']:active:not(:disabled) { background: var(--blue-700); color: var(--text-on-accent); font-weight: 600; }

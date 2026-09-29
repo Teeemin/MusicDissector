@@ -204,9 +204,11 @@ test('six actual Web Audio sources share a clock; gains, Guitar routing, seek, l
   const paused = Number(await page.getByLabel('재생 위치').inputValue())
   await page.waitForTimeout(150)
   expect(Number(await page.getByLabel('재생 위치').inputValue())).toBe(paused)
-  await page.getByRole('button', { name: '0:05 다음 줄', exact: true }).click()
+  await page.getByLabel('재생 위치').fill('5')
+  await page.getByRole('button', { name: '가사', exact: true }).click()
+  await page.locator('.plain-lyrics').click()
   await expect(page.getByLabel('재생 위치')).toHaveValue('5')
-  await expect(page.locator('.lyric-line[aria-current="true"]')).toContainText('다음 줄')
+  await expect(page.locator('.plain-lyrics')).toContainText('다음 줄')
   await page.getByRole('button', { name: '재생', exact: true }).click()
   const resumed = await page.evaluate(() => window.separationProbe.starts.slice(-6))
   expect(new Set(resumed.map(s => s.offset))).toEqual(new Set([5]))
@@ -244,7 +246,7 @@ test('cancel and file replacement terminate the worker; new job recovers', async
   await page.getByRole('button', { name: '분리 취소', exact: true }).click()
   await page.getByRole('button', { name: '재생', exact: true }).click()
   await expect(page.getByRole('button', { name: '일시 정지' })).toBeVisible()
-  await expect(page.locator('.original-audio')).toContainText('ORIGINAL AUDIO')
+  await expect(page.getByRole('group', { name: '재생 소스' })).toHaveCount(0)
 })
 
 test('editing a separated channel from Original auditions the mix at the same position', async ({ page }) => {
@@ -296,4 +298,63 @@ test('editing a separated channel from Original auditions the mix at the same po
   await page.getByRole('button', { name: 'Stem Mix로 듣기', exact: true }).click()
   await expect(source.getByRole('button', { name: 'Stem Mix', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('button', { name: '재생', exact: true })).toBeVisible()
+})
+
+test('Stem Mix repeats all six sources together, keeps mix settings, and stops with Repeat off', async ({ page }) => {
+  await supported(page); await fakeInference(page)
+  await page.addInitScript(() => {
+    const probe: Probe = window.separationProbe = { gains: [], starts: [], analyser: null }
+    const gain = AudioContext.prototype.createGain
+    AudioContext.prototype.createGain = function () {
+      const node = gain.call(this); probe.gains.push(node)
+      if (!probe.analyser) { probe.analyser = this.createAnalyser(); node.connect(probe.analyser) }
+      return node
+    }
+    const start = AudioBufferSourceNode.prototype.start
+    AudioBufferSourceNode.prototype.start = function (when = 0, offset = 0, duration?: number) {
+      probe.starts.push({ when, offset, rate: this.buffer!.sampleRate, channels: this.buffer!.numberOfChannels, sample: this.buffer!.getChannelData(0)[1] })
+      if (duration === undefined) start.call(this, when, offset); else start.call(this, when, offset, duration)
+    }
+  })
+  await page.goto('/'); await cacheModel(page); await load(page)
+  await page.getByRole('button', { name: '분리 시작', exact: true }).click()
+  await expect(page.locator('.separation-status')).toContainText('분리 완료', { timeout: 20000 })
+  await page.getByRole('button', { name: 'Stem Mix', exact: true }).click()
+  await page.getByRole('button', { name: 'No Guitar', exact: true }).click()
+  await page.getByLabel('음량', { exact: true }).fill('0.5')
+  const repeat = page.getByRole('button', { name: '반복 재생', exact: true })
+  await repeat.click()
+  await page.getByLabel('재생 위치').fill('11.4')
+  await page.getByRole('button', { name: '재생', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => window.separationProbe.starts.length)).toBe(12)
+  const restarted = await page.evaluate(() => window.separationProbe.starts.slice(-6))
+  expect(new Set(restarted.map(s => s.offset))).toEqual(new Set([0]))
+  expect(new Set(restarted.map(s => s.when)).size).toBe(1)
+  await expect(page.getByRole('button', { name: '일시 정지' })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => window.separationProbe.gains.map(g => Math.round(g.gain.value * 100) / 100))).toEqual([.5, 1, 0, 1, 1, 1, 1])
+  await expect.poll(() => page.evaluate(() => {
+    const a = window.separationProbe.analyser!
+    const samples = new Float32Array(a.fftSize); a.getFloatTimeDomainData(samples)
+    return Math.max(...samples.map(Math.abs))
+  })).toBeGreaterThan(.01)
+  // Mode switches preserve the setting, but toggling while paused never starts audio.
+  await page.getByRole('button', { name: '일시 정지' }).click()
+  await page.getByRole('group', { name: '재생 소스' }).getByRole('button', { name: 'Original', exact: true }).click()
+  await expect(repeat).toHaveAttribute('aria-pressed', 'true')
+  expect(await page.getByLabel('재생 위치').inputValue()).not.toBe('12')
+  await page.getByRole('button', { name: 'Stem Mix', exact: true }).click()
+  await repeat.click()
+  await page.getByLabel('재생 위치').fill('11.5')
+  await page.getByRole('button', { name: '재생', exact: true }).click()
+  await expect(page.getByRole('button', { name: '재생', exact: true })).toBeVisible()
+  await expect(page.getByLabel('재생 위치')).toHaveValue('12')
+  const endedCount = await page.evaluate(() => window.separationProbe.starts.length)
+  await repeat.click()
+  await page.waitForTimeout(200)
+  expect(await page.evaluate(() => window.separationProbe.starts.length)).toBe(endedCount)
+  await expect(page.getByRole('button', { name: '재생', exact: true })).toBeVisible()
+  await load(page, 'replacement-repeat.wav')
+  await expect(repeat).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByLabel('재생 위치')).toHaveValue('0')
+  await expect(page.getByRole('button', { name: 'Stem Mix', exact: true })).toHaveCount(0)
 })

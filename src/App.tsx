@@ -6,10 +6,11 @@ import { PwaControls } from './components/PwaControls'
 import { LyricsPanel } from './components/LyricsPanel'
 import { StemMixer } from './components/StemMixer'
 import { audioEngine } from './audio/AudioEngine'
+import { removeLegacyChordCache } from './analysis/analysisCache'
 import './App.css'
 
 function App() {
-  useEffect(() => () => audioEngine.dispose(), [])
+  useEffect(() => { removeLegacyChordCache(); return () => audioEngine.dispose() }, [])
 
   return (
     <div className="app-shell">
@@ -22,7 +23,6 @@ function App() {
           </span>
         </a>
         <div className="header-actions">
-          <span className="local-indicator"><span /> 로컬 플레이어</span>
           <PwaControls />
         </div>
       </header>
@@ -55,11 +55,10 @@ function App() {
         </div>
 
         <div className="workspace-footer">
-          <span><Icon name="headphones" /> 좋아하는 음악, 나만의 속도로.</span>
-          <span>MADE FOR LISTENING <span className="footer-dot">·</span> StemLab</span>
+          <span>Made By KTM - MuDissector</span>
         </div>
       </main>
-      <footer className="app-footer"><span>음악과 나 사이, 필요한 것만.</span><span>LOCAL FIRST <span className="tiny-dot" /> PRIVATE BY DESIGN</span></footer>
+      <footer className="app-footer"><span>음악과 나 사이, 필요한 것만.</span><span>Contact: mindalpang27@naver.com</span></footer>
     </div>
   )
 }

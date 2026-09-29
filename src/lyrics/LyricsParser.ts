@@ -92,14 +92,9 @@ export function parseEmbeddedLyrics(tags: EmbeddedLyrics[]): LyricsDocument {
   return { kind: 'none' }
 }
 
-export function findActiveLine(lines: LyricLine[], currentTime: number): number {
-  let low = 0
-  let high = lines.length - 1
-  let active = -1
-  while (low <= high) {
-    const middle = Math.floor((low + high) / 2)
-    if (lines[middle].time <= currentTime) { active = middle; low = middle + 1 }
-    else high = middle - 1
-  }
-  return active
+/** Read embedded content without attaching any playback behavior to timestamps. */
+export function lyricsText(lyrics: LyricsDocument): string {
+  if (lyrics.kind === 'none') return ''
+  if (lyrics.kind === 'plain') return lyrics.text
+  return [lyrics.lines.map(line => line.text).join('\n'), lyrics.untimedText].filter(Boolean).join('\n\n')
 }

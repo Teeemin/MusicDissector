@@ -3,7 +3,7 @@
 import { chromium } from 'playwright'
 import { createServer } from 'node:http'
 import { createReadStream, statSync, writeFileSync } from 'node:fs'
-import { chordAudio } from '../tests/fixtures/chordAudio.ts'
+import { analysisAudio } from '../tests/fixtures/analysisAudio.ts'
 const modelPath = process.env.MODEL_PATH
 if (!modelPath) throw new Error('Set MODEL_PATH to the separately downloaded FP16 model (not a git file)')
 const revision = 'a744f80957374e1735ad70fa122670b7961da8cc'
@@ -42,7 +42,7 @@ try {
     await marker.write(JSON.stringify({ revision, size })); await marker.close()
   }, { key, size, revision, modelUrl })
   await page.reload()
-  const fixture = chordAudio()
+  const fixture = analysisAudio(false, 4)
   fixture.buffer = fixture.buffer.subarray(0, 44 + 22050 * 4 * 2)
   fixture.buffer.writeUInt32LE(fixture.buffer.length - 8, 4); fixture.buffer.writeUInt32LE(fixture.buffer.length - 44, 40)
   await page.getByLabel('음악 파일', { exact: true }).setInputFiles(fixture)

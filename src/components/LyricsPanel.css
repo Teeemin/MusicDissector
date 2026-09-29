@@ -1,35 +1,21 @@
 .lyrics-panel { box-shadow: var(--shadow-soft); grid-column: 1 / -1; min-width: 0; padding: 24px 28px; border: 1px solid var(--border); border-radius: 15px; background: var(--bg-surface); }
-.lyrics-badge { font-size: 11px; color: var(--muted); }
-.lyrics-empty { text-align: center; color: var(--muted); font-size: 13px; line-height: 1.8; padding: 26px 8px 10px; }
-.lyrics-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
-.lyrics-toolbar p { color: var(--muted); font-size: 11px; line-height: 1.8; word-break: keep-all; }
-.follow-button { min-height: 44px; padding: 10px 16px; flex-shrink: 0; border: 1px solid var(--border-control); border-radius: 8px; background: var(--bg-surface-raised); color: var(--accent-strong); font-size: 12px; }
-.follow-button.is-following { background: var(--bg-selected); color: var(--accent-strong); }
+.lyrics-panel .section-heading h2 { width: 100%; }
+.lyrics-toggle { display: flex; align-items: center; justify-content: space-between; flex: 1; min-height: 44px; padding: 0; font: inherit; background: transparent; text-align: left; }
+.lyrics-toggle > span { font-size: 10px; color: var(--text-secondary); }
+.lyrics-collapse { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows 180ms ease, visibility 180ms; }
+.lyrics-collapse.is-open { grid-template-rows: 1fr; visibility: visible; }
+.lyrics-collapse-inner { min-height: 0; overflow: hidden; }
 .lyrics-scroll { max-height: 360px; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; margin-top: 16px; padding: 12px; border-radius: 8px; }
 .lyrics-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.timed-lyrics { height: 320px; padding-block: 130px; scroll-behavior: auto; }
-.lyrics-lines { list-style: none; padding: 0; margin: 0 auto; max-width: 760px; }
-.lyric-line { display: flex; align-items: baseline; gap: 18px; width: 100%; min-height: 48px; padding: 12px 16px; border-radius: 8px; text-align: left; background: transparent; color: var(--text-secondary); font-size: 16px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; transition: color 120ms, background 120ms; }
-.lyric-line > span:last-child { min-width: 0; }
-.lyric-line:hover:not(:disabled) { background: var(--bg-hover); }
-.lyric-line[data-active='true'] { color: var(--accent-strong); background: var(--bg-selected); font-weight: 650; }
-.lyric-line:disabled { cursor: default; }
-.lyric-time { min-width: 38px; flex-shrink: 0; font: 10px/1.8 ui-monospace, monospace; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.lyrics-empty { text-align: center; color: var(--muted); font-size: 13px; line-height: 1.8; padding: 26px 8px 10px; }
 .plain-lyrics { max-width: 760px; margin: 0 auto; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-body); font-size: 15px; line-height: 2.1; }
-.untimed-lyrics { max-width: 760px; margin: 24px auto 0; padding-top: 20px; border-top: 1px solid var(--border); }
-.lyrics-caption { color: var(--muted); font-size: 11px; margin-bottom: 12px; }
 .track-artwork { width: 220px; height: 220px; object-fit: contain; border-radius: 12px; background: var(--bg-main); box-shadow: none; }
 .track-info .track-artist { margin-top: 6px; font-size: 13px; line-height: 1.7; color: var(--text-body); overflow-wrap: anywhere; }
-.track-info .track-album { margin-top: 4px; font-size: 11px; line-height: 1.7; color: var(--muted); overflow-wrap: anywhere; }
+.track-info .track-album { margin-top: 4px; font-size: 11px; line-height: 1.7; color: var(--muted); }
 .track-info .track-format { margin-top: 8px; }
 @media (max-width: 900px) { .track-artwork { width: 190px; height: 190px; } }
 @media (max-width: 699px) {
   .lyrics-panel { padding: 20px 16px; }
   .lyrics-scroll { padding-inline: 0; }
-  .lyric-line { padding-inline: 10px; gap: 10px; font-size: 15px; }
   .track-artwork { width: 180px; height: 180px; }
 }
-
-.follow-button:hover { background: var(--bg-hover); }
-.follow-button.is-following:hover { background: var(--bg-hover); }
-.follow-button:active { background: var(--bg-hover); color: var(--text-primary); }

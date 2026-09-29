@@ -10,6 +10,7 @@ const paths = {
   pause: <><path d="M8 5v14M16 5v14" strokeWidth="5" /></>,
   back: <><path d="M3 9a9 9 0 1 1 0 7M3 4v5h5" /><text x="7.2" y="16" stroke="none" fill="currentColor" fontSize="9" fontWeight="700">10</text></>,
   forward: <><path d="M21 9a9 9 0 1 0 0 7m0-12v5h-5" /><text x="7.2" y="16" stroke="none" fill="currentColor" fontSize="9" fontWeight="700">10</text></>,
+  repeat: <><path d="m17 2 4 4-4 4M3 11V8a2 2 0 0 1 2-2h16M7 22l-4-4 4-4m14-1v3a2 2 0 0 1-2 2H3" /></>,
   volume: <><path d="m11 4-6 5H2v6h3l6 5ZM15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14" /></>,
   muted: <><path d="m11 4-6 5H2v6h3l6 5Zm5 5 5 6m0-6-5 6" /></>,
   download: <><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4" /></>,

@@ -2,7 +2,6 @@ import Essentia from 'essentia.js/dist/essentia.js-core.es.js'
 import wasmUrl from 'essentia.js/dist/essentia-wasm.es.js?url'
 import { ANALYSIS_SAMPLE_RATE, ANALYSIS_VERSION } from '../analysis/analysisTypes'
 import type { AnalysisMessage, MusicAnalysisResult } from '../analysis/analysisTypes'
-import { normalizePitchName } from '../analysis/pitchNames'
 
 const send = (message: AnalysisMessage) => self.postMessage(message)
 self.onmessage = async ({ data: samples }: MessageEvent<Float32Array>) => {
@@ -12,7 +11,7 @@ self.onmessage = async ({ data: samples }: MessageEvent<Float32Array>) => {
     // Keep the upstream synchronous ESM WASM build intact; it runs only here.
     const { EssentiaWASM } = await import(/* @vite-ignore */ wasmUrl)
     essentia = new Essentia(EssentiaWASM)
-    const result: MusicAnalysisResult = { bpm: null, beats: [], key: null, scale: null, confidence: {}, engineVersion: ANALYSIS_VERSION }
+    const result: MusicAnalysisResult = { bpm: null, beats: [], confidence: {}, engineVersion: ANALYSIS_VERSION }
     let energy = 0
     for (const value of samples) energy += value * value
     if (samples.length < ANALYSIS_SAMPLE_RATE * 2 || energy / samples.length < 1e-10) {
@@ -35,16 +34,7 @@ self.onmessage = async ({ data: samples }: MessageEvent<Float32Array>) => {
           if (result.beats.length < 2) { result.bpm = null; result.beats = [] }
         }
       } finally { rhythm.ticks.delete(); rhythm.estimates.delete(); rhythm.bpmIntervals.delete() }
-    } catch { /* Tonal analysis can still succeed when rhythm is unavailable. */ }
-    send({ kind: 'stage', stage: 'key' })
-    try {
-      const tonal = essentia.KeyExtractor(signal)
-      if (Number.isFinite(tonal.strength)) result.confidence.key = tonal.strength
-      if (tonal.strength >= .5 && ['major', 'minor'].includes(tonal.scale)) {
-        result.key = normalizePitchName(tonal.key)
-        result.scale = result.key ? tonal.scale as 'major' | 'minor' : null
-      }
-    } catch { /* A rhythm-only result is useful; no invented key fallback. */ }
+    } catch { /* Leave BPM unavailable rather than inventing a value. */ }
     send({ kind: 'result', result })
   } catch { send({ kind: 'error' }) }
   finally { signal?.delete(); essentia?.shutdown(); essentia?.delete() }

@@ -2,7 +2,6 @@ import type { PlaybackState } from '../types/audio'
 import { readMetadata } from '../metadata/MetadataReader'
 import { mixerStore } from '../mixer/mixerStore'
 import { analysisStore } from '../analysis/analysisStore'
-import { chordStore } from '../analysis/chordStore'
 import { separationStore } from '../separation/separationStore'
 import { StemAudioEngine } from './StemAudioEngine'
 
@@ -18,6 +17,7 @@ const initialState: PlaybackState = {
   isReady: false,
   volume: 1,
   muted: false,
+  repeatEnabled: false,
   error: null,
 }
 
@@ -54,6 +54,7 @@ export class AudioEngine {
     if (this.audio) return this.audio
     const audio = new Audio()
     audio.preload = 'metadata'
+    audio.loop = this.state.repeatEnabled
     audio.addEventListener('loadedmetadata', () => this.readDuration())
     audio.addEventListener('durationchange', () => this.readDuration())
     audio.addEventListener('timeupdate', () => { if (this.state.mode === 'original') this.update({ currentTime: audio.currentTime }) })
@@ -95,7 +96,6 @@ export class AudioEngine {
     separationStore.clear()
     this.generation++
     analysisStore.clear()
-    chordStore.clear()
     this.clearMetadata()
     const audio = this.createAudio()
     audio.pause()
@@ -107,6 +107,7 @@ export class AudioEngine {
       ...initialState,
       volume: audio.volume,
       muted: audio.muted,
+      repeatEnabled: this.state.repeatEnabled,
       isLoading: true,
       track: {
         id: this.generation,
@@ -139,7 +140,6 @@ export class AudioEngine {
       }
     })
     analysisStore.selectFile(file, this.generation)
-    chordStore.selectFile(file, this.generation)
     return null
   }
 
@@ -203,6 +203,8 @@ export class AudioEngine {
           if (currentTime >= this.stems.duration) {
             this.stems.pause(); if (this.ticker) clearInterval(this.ticker); this.ticker = null
             this.update({ currentTime: this.state.duration, isPlaying: false })
+            // Reuse the guarded transport start so all six stems restart together.
+            if (this.state.repeatEnabled) void this.play()
           }
           else this.update({ currentTime })
         }, 50)
@@ -274,12 +276,17 @@ export class AudioEngine {
     if (this.audio) this.audio.muted = !this.audio.muted
   }
 
+  toggleRepeat() {
+    const repeatEnabled = !this.state.repeatEnabled
+    if (this.audio) this.audio.loop = repeatEnabled
+    this.update({ repeatEnabled })
+  }
+
   dispose() {
     this.generation++
     this.pause(); this.releaseStems(); separationStore.clear()
     this.mixerUnsubscribe?.(); this.mixerUnsubscribe = null
     analysisStore.clear()
-    chordStore.clear()
     mixerStore.clear()
     this.clearMetadata()
     if (this.audio) {

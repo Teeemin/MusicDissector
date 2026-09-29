@@ -14,7 +14,7 @@ export function StemMixer() {
   const disabled = trackId === null
   return (
     <section className="mixer-panel" aria-labelledby="mixer-title" aria-describedby="mixer-note">
-      <div className="section-heading"><h2 id="mixer-title"><span>04</span> Stem Mixer</h2><span className="mixer-badge">{separationStatus === 'ready' ? '6 stems 준비됨' : '설정 미리보기'}</span></div>
+      <div className="section-heading"><h2 id="mixer-title"><span>04</span> Dissector</h2>{separationStatus === 'ready' && <span className="mixer-badge">6 stems 준비됨</span>}</div>
       <div className="mixer-intro"><p id="mixer-note">{separationStatus === 'ready' ? mode === 'stems' ? '현재 Stem Mix · 채널 설정이 소리에 적용됩니다. 재생기에서 Original을 선택하면 원본과 비교할 수 있어요.' : '현재 Original · 원본을 듣고 있습니다. 채널이나 프리셋을 조절하면 Stem Mix로 전환되어 소리에 적용됩니다.' : '아직 stem 음원이 없습니다. 아래 설정은 현재 재생되는 원본 소리에 적용되지 않습니다.'}</p><a className="mixer-player-link" href="#player-title">재생기로 이동 ↑</a></div>
       <SeparationPanel />
       {separationStatus === 'ready' && mode === 'original' && <div className="separation-actions"><button type="button" onClick={() => void audioEngine.setMode('stems')}>Stem Mix로 듣기</button></div>}

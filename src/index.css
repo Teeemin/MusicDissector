@@ -30,6 +30,7 @@
   --accent-pressed: var(--blue-700);
   --accent-strong: var(--blue-700);
   --bg-selected: #DDECFD;
+  --button-subtle: #EEF5FD;
   --logo-bg: var(--blue-400);
   --logo-icon: var(--text-on-accent);
   --muted: var(--text-secondary);
@@ -65,9 +66,12 @@ svg { flex-shrink: 0; }
 h1, h2, h3, p { margin: 0; }
 h1, h2, h3 { color: var(--text-primary); }
 button { border: 0; }
+:root button { transition: transform 100ms ease, background-color 160ms ease, color 160ms ease, border-color 160ms ease; }
+button:active:not(:disabled) { transform: scale(.97); }
 ::selection { color: var(--text-primary); background: var(--blue-200); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  button:active:not(:disabled) { transform: none; }
 }

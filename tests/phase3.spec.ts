@@ -70,9 +70,11 @@ test('replacement resets mixer while rejected files preserve controls and lyrics
     await expect(page.getByRole('button', { name: `${label} Solo`, exact: true })).toHaveAttribute('aria-pressed', 'false')
   }
   await expect(page.getByRole('img', { name: '새로운 곡 앨범 아트' })).toBeVisible()
-  await page.getByRole('button', { name: '0:05 다음 줄', exact: true }).click()
+  await page.getByLabel('재생 위치').fill('5')
+  await page.getByRole('button', { name: '가사', exact: true }).click()
+  await page.locator('.plain-lyrics').click()
   await expect(page.getByLabel('재생 위치')).toHaveValue('5')
-  await expect(page.locator('.lyric-line[aria-current="true"]')).toContainText('다음 줄')
+  await expect(page.locator('.plain-lyrics')).toContainText('다음 줄')
 })
 
 test('mixer controls never duplicate or modify the original audio playback', async ({ page }) => {
@@ -97,7 +99,7 @@ test('mixer controls never duplicate or modify the original audio playback', asy
   expect(snapshot).toMatchObject({ count: 1, bufferSources: 0, paused: false, volume: 1, muted: false })
   expect(snapshot.time).toBeGreaterThan(0)
   await page.getByRole('link', { name: '재생기로 이동' }).click()
-  await expect(page.getByRole('heading', { name: '02 지금 듣기' })).toBeInViewport()
+  await expect(page.getByRole('heading', { name: '02 재생기' })).toBeInViewport()
   await page.getByRole('button', { name: '일시 정지' }).click()
   await page.getByLabel('재생 위치').press('Home')
   await page.getByRole('button', { name: '10초 앞으로' }).click()

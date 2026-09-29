@@ -26,5 +26,6 @@ export interface PlaybackState {
   isReady: boolean
   volume: number
   muted: boolean
+  repeatEnabled: boolean
   error: string | null
 }

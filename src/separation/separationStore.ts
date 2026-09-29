@@ -8,7 +8,6 @@ import type { SeparationProgress, SeparationErrorCode } from './separationTypes'
 import type { StemSeparationEngine } from './StemSeparationEngine'
 import { mixerStore, MixerStore } from '../mixer/mixerStore'
 import { analysisStore } from '../analysis/analysisStore'
-import { chordStore } from '../analysis/chordStore'
 
 export interface SeparationState extends SeparationProgress {
   trackId: number | null
@@ -72,8 +71,8 @@ export class SeparationStore {
     this.mixer.clearSources(trackId)
     this.update({ stage: 'model-loading', completed: 0, total: 0, error: null, errorCode: null })
     try {
-      // Let automatic analysis finish; don't compete with two additional WASM heaps.
-      while (['decoding', 'analyzing'].includes(analysisStore.getSnapshot().status) || ['waiting', 'decoding', 'extracting', 'detecting'].includes(chordStore.getSnapshot().status)) {
+      // Let BPM analysis finish before allocating the separation model heap.
+      while (['decoding', 'analyzing'].includes(analysisStore.getSnapshot().status)) {
         await new Promise((r) => setTimeout(r, 100)); controller.signal.throwIfAborted()
       }
       const result = await this.engine.separate(this.file, { signal: controller.signal, onProgress: (progress) => { if (current()) this.update(progress) } })

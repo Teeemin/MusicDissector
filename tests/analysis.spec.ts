@@ -6,7 +6,7 @@ import type { AnalysisCache } from '../src/analysis/analysisCache'
 import { fingerprint } from '../src/analysis/analysisCache'
 import { getCurrentBeatIndex } from '../src/analysis/beatTimeline'
 
-const result = (): MusicAnalysisResult => ({ bpm: 123.94, beats: [.47, .95, 1.44], key: 'A', scale: 'minor', confidence: { bpm: 3, key: .8 }, engineVersion: ANALYSIS_VERSION })
+const result = (): MusicAnalysisResult => ({ bpm: 123.94, beats: [.47, .95, 1.44], confidence: { bpm: 3 }, engineVersion: ANALYSIS_VERSION })
 const file = (name = 'song.wav') => new File(['audio'], name, { lastModified: 123 })
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 function memoryCache() {
@@ -20,7 +20,7 @@ test('result contract rejects invalid timestamps, stale engine and invalid value
   for (const patch of [{ bpm: NaN }, { beats: [1, .5] }, { beats: [NaN] }, { engineVersion: 'old' }, { key: 'H' }, { scale: null }, { confidence: { bpm: Infinity } }]) {
     expect(validResult({ ...result(), ...patch })).toBe(false)
   }
-  expect(validResult({ ...result(), bpm: null, beats: [], key: null, scale: null })).toBe(true)
+  expect(validResult({ ...result(), bpm: null, beats: [] })).toBe(true)
 })
 
 test('beat lookup handles exact beats, seeks, bounds and empty results', () => {
@@ -67,7 +67,7 @@ test('late analysis completion, errors and progress cannot overwrite a new track
   store.selectFile(file('second.wav'), 2); await settle()
   expect(jobs[0].options.signal.aborted).toBe(true)
   jobs[1].resolve(result()); await settle()
-  jobs[0].options.onStage('key'); jobs[0].resolve({ ...result(), bpm: 90 }); await settle()
+  jobs[0].options.onStage('bpm'); jobs[0].resolve({ ...result(), bpm: 90 }); await settle()
   expect(store.getSnapshot().result?.bpm).toBe(123.94)
   store.selectFile(file('third.wav'), 3); await settle()
   expect(store.getSnapshot().result).toBeNull()
