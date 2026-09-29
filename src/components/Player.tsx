@@ -3,6 +3,7 @@ import { audioEngine } from '../audio/AudioEngine'
 import { usePlayback } from '../stores/playbackStore'
 import { formatTime } from '../utils/format'
 import { Icon } from './Icon'
+import { TrackArtwork } from './TrackArtwork'
 
 export function Player() {
   const { track, currentTime, duration, isPlaying, isReady, isLoading, isStarting, isBuffering, volume, muted, error } = usePlayback()
@@ -17,14 +18,13 @@ export function Player() {
         <span className={`playback-status ${isPlaying ? 'is-playing' : ''}`} role="status"><span />{status}</span>
       </div>
       <div className="listening-stage">
-        <div className={`record ${isPlaying ? 'is-playing' : ''}`} aria-hidden="true">
-          <div className="record-grooves" /><div className="record-label"><Icon name="wave" /><span>STEMLAB</span><i /></div>
-          <span className="record-shine" />
-        </div>
+        <TrackArtwork key={`${track?.id}:${track?.artworkUrl}`} artworkUrl={track?.artworkUrl} title={track?.name} isPlaying={isPlaying} />
         <div className="track-info">
           <p className="eyebrow">{track ? 'FROM YOUR DEVICE' : 'A LITTLE SPACE FOR YOUR MUSIC'}</p>
           <h3 title={track?.name}>{track?.name ?? '당신의 음악을 들려주세요'}</h3>
-          <p>{track ? `${track.format} AUDIO · 로컬 파일` : '파일을 선택하면 이곳에서 재생할 수 있어요.'}</p>
+          {track?.artist && <p className="track-artist">{track.artist}</p>}
+          {track?.album && <p className="track-album">{track.album}</p>}
+          <p className="track-format">{track ? `${track.format} AUDIO · 로컬 파일` : '파일을 선택하면 이곳에서 재생할 수 있어요.'}</p>
         </div>
       </div>
 

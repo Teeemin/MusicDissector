@@ -3,6 +3,7 @@ import { FilePicker } from './components/FilePicker'
 import { Icon } from './components/Icon'
 import { Player } from './components/Player'
 import { PwaControls } from './components/PwaControls'
+import { LyricsPanel } from './components/LyricsPanel'
 import { audioEngine } from './audio/AudioEngine'
 import './App.css'
 
@@ -48,6 +49,7 @@ function App() {
             </div>
           </section>
           <Player />
+          <LyricsPanel />
         </div>
 
         <div className="workspace-footer">

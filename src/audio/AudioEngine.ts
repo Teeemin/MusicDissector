@@ -1,4 +1,5 @@
 import type { PlaybackState } from '../types/audio'
+import { readMetadata } from '../metadata/MetadataReader'
 
 const initialState: PlaybackState = {
   track: null,
@@ -20,6 +21,8 @@ export class AudioEngine {
   private context: AudioContext | null = null
   private source: MediaElementAudioSourceNode | null = null
   private objectUrl: string | null = null
+  private artworkUrl: string | null = null
+  private metadataAbort: AbortController | null = null
   private generation = 0
   private state: PlaybackState = initialState
   private listeners = new Set<() => void>()
@@ -77,6 +80,7 @@ export class AudioEngine {
 
     const nextUrl = URL.createObjectURL(file)
     this.generation++
+    this.clearMetadata()
     const audio = this.createAudio()
     audio.pause()
     audio.removeAttribute('src')
@@ -89,15 +93,55 @@ export class AudioEngine {
       muted: audio.muted,
       isLoading: true,
       track: {
+        id: this.generation,
         name: file.name.replace(/\.[^.]+$/, '') || file.name,
         fileName: file.name,
         format: extension.toUpperCase(),
         size: file.size,
+        artist: null,
+        album: null,
+        metadataDuration: null,
+        artworkUrl: null,
+        metadataStatus: 'loading',
+        lyrics: { kind: 'none' },
       },
     })
     audio.src = nextUrl
     audio.load()
+    this.metadataAbort = new AbortController()
+    void this.loadMetadata(file, this.generation, this.metadataAbort.signal)
     return null
+  }
+
+  private clearMetadata() {
+    this.metadataAbort?.abort()
+    this.metadataAbort = null
+    if (this.artworkUrl) URL.revokeObjectURL(this.artworkUrl)
+    this.artworkUrl = null
+  }
+
+  private async loadMetadata(file: File, generation: number, signal: AbortSignal) {
+    try {
+      const metadata = await readMetadata(file, signal)
+      if (signal.aborted || generation !== this.generation || !this.state.track) return
+      if (metadata.artwork) {
+        this.artworkUrl = URL.createObjectURL(new Blob([metadata.artwork.data], { type: metadata.artwork.format }))
+      }
+      this.update({ track: {
+        ...this.state.track,
+        name: metadata.title ?? this.state.track.name,
+        artist: metadata.artist,
+        album: metadata.album,
+        metadataDuration: metadata.duration,
+        artworkUrl: this.artworkUrl,
+        metadataStatus: 'ready',
+        lyrics: metadata.lyrics,
+      } })
+    } catch {
+      if (!signal.aborted && generation === this.generation && this.state.track) {
+        this.update({ track: { ...this.state.track, metadataStatus: 'unavailable' } })
+      }
+    }
   }
 
   async play() {
@@ -149,6 +193,7 @@ export class AudioEngine {
 
   dispose() {
     this.generation++
+    this.clearMetadata()
     if (this.audio) {
       this.audio.pause()
       this.audio.removeAttribute('src')
