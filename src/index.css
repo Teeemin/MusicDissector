@@ -1,15 +1,55 @@
 :root {
   font-family: 'Inter', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
-  color: #eeeee8;
-  background: #101210;
+  color: var(--text-body);
+  background: var(--bg-main);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color-scheme: dark;
-  --accent: #d2f68b;
-  --muted: #989e94;
-  --border: #2d322b;
+  color-scheme: light;
+  /* BLUESKY palette: all component colors resolve through these tokens. */
+  --blue-100: #CEDEF2;
+  --blue-200: #A0C4F2;
+  --blue-400: #6DA7F2;
+  --blue-700: #035AA6;
+  --blue-900: #023373;
+  --bg-main: #FFFFFF;
+  --surface-1: #EDF5FF;
+  --surface-2: #E2EEFD;
+  --surface-3: #D8E8FC;
+  --bg-surface: var(--surface-1);
+  --bg-surface-raised: var(--surface-2);
+  --bg-hover: #D7E8FC;
+  --text-primary: var(--blue-900);
+  --text-body: #324A63;
+  --text-secondary: #6B7F95;
+  --text-muted: #94A3B8;
+  --text-on-accent: #FFFFFF;
+  --accent: var(--blue-400);
+  --accent-hover: var(--blue-200);
+  --accent-pressed: var(--blue-700);
+  --accent-strong: var(--blue-700);
+  --bg-selected: #DDECFD;
+  --logo-bg: var(--blue-400);
+  --logo-icon: var(--text-on-accent);
+  --muted: var(--text-secondary);
+  --border-subtle: rgba(3, 90, 166, .08);
+  --border: var(--border-subtle);
+  --border-control: var(--border-subtle);
+  --border-hover: rgba(160, 196, 242, .20);
+  --bg-drop: #F0F7FF;
+  --bg-drop-hover: #E4F0FF;
+  --border-drop: rgba(109, 167, 242, .35);
+  --slider-track: #E6EEF7;
+  --slider-thumb: var(--blue-400);
+  --button-disabled: var(--blue-100);
+  --record-groove: #E6EEF7;
+  --error-text: #9B4555;
+  --error-bg: #FFF5F6;
+  --error-border: rgba(155, 69, 85, .12);
+  --backdrop: rgba(50, 74, 99, .20);
+  --shadow-soft: 0 4px 18px rgba(2, 51, 115, .06);
+  --shadow-overlay: var(--shadow-soft);
 }
 
 * { box-sizing: border-box; }
@@ -23,8 +63,9 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 a { color: inherit; }
 svg { flex-shrink: 0; }
 h1, h2, h3, p { margin: 0; }
+h1, h2, h3 { color: var(--text-primary); }
 button { border: 0; }
-::selection { color: #17200f; background: var(--accent); }
+::selection { color: var(--text-primary); background: var(--blue-200); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 @media (prefers-reduced-motion: reduce) {

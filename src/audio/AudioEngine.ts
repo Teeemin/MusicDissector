@@ -1,5 +1,6 @@
 import type { PlaybackState } from '../types/audio'
 import { readMetadata } from '../metadata/MetadataReader'
+import { mixerStore } from '../mixer/mixerStore'
 
 const initialState: PlaybackState = {
   track: null,
@@ -110,6 +111,7 @@ export class AudioEngine {
     audio.load()
     this.metadataAbort = new AbortController()
     void this.loadMetadata(file, this.generation, this.metadataAbort.signal)
+    mixerStore.selectFile(file, this.generation)
     return null
   }
 
@@ -193,6 +195,7 @@ export class AudioEngine {
 
   dispose() {
     this.generation++
+    mixerStore.clear()
     this.clearMetadata()
     if (this.audio) {
       this.audio.pause()

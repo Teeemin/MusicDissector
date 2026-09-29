@@ -22,8 +22,8 @@ export default defineConfig({
         start_url: './',
         scope: './',
         display: 'standalone',
-        background_color: '#101210',
-        theme_color: '#101210',
+        background_color: '#FFFFFF',
+        theme_color: '#FFFFFF',
         categories: ['music'],
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },

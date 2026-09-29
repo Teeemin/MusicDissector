@@ -4,6 +4,7 @@ import { Icon } from './components/Icon'
 import { Player } from './components/Player'
 import { PwaControls } from './components/PwaControls'
 import { LyricsPanel } from './components/LyricsPanel'
+import { StemMixer } from './components/StemMixer'
 import { audioEngine } from './audio/AudioEngine'
 import './App.css'
 
@@ -50,6 +51,7 @@ function App() {
           </section>
           <Player />
           <LyricsPanel />
+          <StemMixer />
         </div>
 
         <div className="workspace-footer">

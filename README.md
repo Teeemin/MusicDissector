@@ -1,4 +1,4 @@
-# Music Dissector · Phase 2
+# Music Dissector · Phase 3
 
 React + TypeScript + Vite 기반의 모바일 우선 로컬 음악 플레이어입니다. 기존 Vite 프로젝트를 이어서 구현했습니다.
 
@@ -15,7 +15,42 @@ React + TypeScript + Vite 기반의 모바일 우선 로컬 음악 플레이어�
 - 내장 SYLT / LRC / 일반 가사 구분 및 표시
 - 시간 가사의 현재 줄 강조, 줄 클릭 seek, 자동 스크롤과 Follow
 
-**Phase 2까지만 구현했습니다.** 믹서, stem separation, BPM / Key / chord 분석, IndexedDB 분석 캐시, export는 포함하지 않습니다. 기존 파일 선택 / 재생 / seek / 볼륨 / PWA 기능과 헤더를 유지하고, 재생기의 곡 정보 및 artwork와 그 아래 내장 가사 패널을 추가했습니다. artwork가 없거나 읽을 수 없으면 기존 장식 레코드를 표시합니다.
+**Phase 3까지만 구현했습니다.** 6개 stem의 믹서 설정과 mock 구조를 추가했습니다. 실제 stem separation, BPM / beat / Key / chord 분석, AI 가사 동기화, 서버 연동, export는 구현하지 않았습니다. 기존 파일 선택 / 재생 / seek / 볼륨 / PWA / metadata / artwork / 가사와 헤더는 유지합니다.
+
+## Phase 3: Stem Mixer
+
+기존 가사 아래에 믹서 영역을 추가했습니다. 700px 미만에서는 채널이 한 열, 넓은 화면에서는 두 열로 표시됩니다. 각 채널은 볼륨 0~100%, Mute, Solo를 가지며 터치 컨트롤 높이는 최소 44px입니다. `재생기로 이동` 링크로 기존 곡 정보와 transport에 복귀할 수 있습니다.
+
+**현재 믹서는 설정 미리보기입니다.** 실제로 들리는 것은 기존 AudioEngine의 원본 음원입니다. MockStemSeparationEngine은 음원을 읽거나 복제하지 않고, 6개의 `null` source와 `processed: false`를 반환합니다. AI 실행이나 가짜 진행률이 없으며, 믹서 설정은 원본 재생 볼륨 / mute / seek에 영향을 주지 않습니다. 이 사실을 믹서 상단에 표시합니다.
+
+- 고정 채널: Vocals / Guitar / Piano / Drums / Bass / Others.
+- 볼륨은 선형 gain 0~1로 저장하며 UI는 0~100%로 표시합니다. 원본 플레이어의 볼륨과 별개입니다.
+- 하나라도 Solo가 있으면 Solo 채널만 포함합니다. 여러 Solo를 동시에 켤 수 있습니다.
+- **Mute가 Solo보다 우선합니다.** Solo이면서 Mute인 채널은 제외합니다. 유일한 Solo 채널이 Mute라면 모든 채널의 설정 gain은 0입니다.
+- Original: 모든 볼륨 100%, Mute / Solo 해제.
+- Vocal Only: 초기화 후 Vocals만 Solo.
+- No Vocal / No Guitar / No Piano: 초기화 후 해당 채널만 Mute.
+- 모든 프리셋은 이전 볼륨 / Mute / Solo를 먼저 초기화하여 결과가 일관됩니다. 이후 개별 조절이 가능하며, 값이 프리셋과 달라지면 버튼 강조가 해제됩니다.
+- 유효한 새 파일이나 같은 파일을 다시 선택하면 모든 채널을 초기화하고 이전 mock 작업을 취소합니다. 잘못된 확장자 / 빈 파일 선택은 현재 재생 및 믹서 상태를 유지합니다. 늦게 도착한 이전 작업 결과 / 오류도 무시합니다.
+
+### Phase 3 구조와 변경 파일
+
+| 구분 | 파일 | 역할 |
+| --- | --- | --- |
+| 생성 | `src/separation/StemSeparationEngine.ts` | 취소 신호를 받는 separation 인터페이스, 6개 source를 갖는 mock / separated 결과 타입 |
+| 생성 | `src/separation/MockStemSeparationEngine.ts` | source가 전부 null인 즉시 mock 결과 |
+| 생성 | `src/mixer/mixerTypes.ts`, `mixerRules.ts` | 채널 타입, source / loading / error 확장점, Mute / Solo gain 규칙, 프리셋 |
+| 생성 | `src/mixer/mixerStore.ts`, `useMixer.ts` | 독립 외부 store와 React 구독, 파일 교체 / 취소 / 초기화 |
+| 생성 | `src/audio/StemMixPlan.ts` | 미래 backend용 source / gain 계획 및 공통 clock 시작 시점 계약 |
+| 생성 | `src/components/StemMixer.tsx`, `StemChannel.tsx`, `MixerPresets.tsx`, `StemMixer.css` | 믹서 영역과 반응형 채널 UI |
+| 수정 | `src/audio/AudioEngine.ts` | 유효한 파일 선택 시 mixer 초기화, dispose 시 정리만 연결 |
+| 수정 | `src/App.tsx` | 믹서 컴포넌트 추가 |
+| 생성 | `tests/mixer.spec.ts`, `tests/phase3.spec.ts` | 규칙 / 상태 / 경쟁 조건 및 브라우저 통합 테스트 |
+| 수정 | `README.md` | Phase 3 동작, 범위, 구조, 확인 방법 |
+
+새 package는 설치하지 않았습니다. Phase 1 / Phase 2 테스트 파일도 수정하지 않았습니다.
+
+실제 buffer는 미래에 `StemAudioSource`로 전달하도록 타입을 분리했습니다. `createStemMixPlan()`은 채널별 source / gain을 계산하는 순수 함수입니다. `SharedStemStart`는 하나의 AudioContext clock 시점과 원본 타임라인 offset을 정의합니다. Phase 6 backend에서 모든 AudioBufferSourceNode를 동일한 `contextTime` / `offsetSeconds`로 시작하고 각 GainNode로 연결하는 구조를 위한 계약이며, 현재 이 backend나 sample-accurate stem 재생을 구현한 것은 아닙니다. 현재 AudioEngine의 단일 HTMLAudioElement 및 재생 경로는 그대로입니다.
 
 ## Phase 2 동작과 의존성
 
@@ -31,7 +66,7 @@ React + TypeScript + Vite 기반의 모바일 우선 로컬 음악 플레이어�
 - 시간 없는 가사에는 timestamp나 클릭 seek를 만들지 않습니다. `동기화 정보 없음`으로 표시합니다. 가사가 없으면 `내장 가사가 없습니다`로 표시합니다.
 - 현재 줄은 playback state로 찾습니다. 자동 스크롤은 가사 패널 내부만 움직입니다. 휠 / 터치 / 스크롤바 / 키보드로 직접 읽으면 Follow가 멈추며, **Follow**를 누를 때 다시 따라갑니다. 곡의 실제 길이를 넘어서는 timestamp의 seek는 비활성화됩니다.
 
-### 이번 Phase 2 생성 / 수정 파일
+### Phase 2 생성 / 수정 파일
 
 | 구분 | 파일 | 내용 |
 | --- | --- | --- |
@@ -84,6 +119,7 @@ PWA의 설치 요건은 [MDN의 설치 가이드](https://developer.mozilla.org/
 9. `tests/fixtures/tagged.flac` 또는 `tagged.m4a`를 선택하면 테스트 제목 / 가수 / 앨범 / artwork와 LRC 가사가 표시됩니다. 첫 줄은 1초, 둘째 줄은 4초이며 클릭으로 이동할 수 있습니다.
 10. 시간 가사를 직접 스크롤한 뒤 **Follow**로 현재 줄에 복귀하는지 확인합니다. 일반 embedded lyrics 파일에서는 원문이 표시되며 클릭해도 재생 위치가 바뀌지 않습니다. 가사 없는 파일도 오류 없이 사용할 수 있습니다.
 11. 다른 곡으로 교체해 이전 태그 / 이미지 / 가사가 남지 않는지 확인합니다. Fold7에서 파일을 열고 접거나 펼쳐 가사 패널과 재생 컨트롤을 확인하세요.
+12. Stem Mixer에서 개별 볼륨, Mute / Solo, 여러 Solo, 5개 프리셋을 조작하세요. 원본 소리는 계속 그대로 재생되어야 합니다. 다른 곡을 선택하면 모든 채널이 100% / Mute 해제 / Solo 해제로 돌아갑니다.
 
 음악은 서버에 업로드하지 않으며 브라우저 캐시에도 저장하지 않습니다. 앱을 새로 열거나 새로고침하면 파일을 다시 선택해야 합니다. 오프라인 기능은 앱 화면과 코드의 캐시이며, 브라우저에서 사이트 데이터를 지우면 다시 온라인 접속이 필요합니다.
 
@@ -102,6 +138,8 @@ Playwright는 실제 프로덕션 빌드를 생성하고 4173 포트에서 미�
 이 자동 검증은 Chromium 기반이며, Galaxy Fold7 실기기의 설치 및 운영체제의 파일 선택기는 위 수동 순서로 확인해야 합니다.
 
 Phase 2 검증에서는 실제 MP3 / WAV / FLAC / M4A의 내장 태그를 읽고, title / artist / album / duration / artwork, SYLT와 LRC 우선순위, 일반 가사 / 없는 가사, seek와 현재 줄, Follow 중지 / 재개, 늦은 이전 결과 차단, artwork URL 해제, 이미지 오류 fallback, 오프라인 Worker, 320 / 412 / 800px 화면을 확인합니다. `tests/lyrics-parser.spec.ts`는 가사 정규화의 경계 조건을 별도로 검사합니다.
+
+Phase 3 테스트는 6개 채널, 볼륨 범위, Mute 우선 규칙, Solo / multi-solo, 모든 프리셋과 이후 개별 조절, 새 파일 초기화, 취소 및 늦은 결과, 오류 복구, 320 / 412 / 800px 화면과 터치 크기, 모바일 조작 / 화면 펼침, 오프라인 사용을 검증합니다. 실제 Audio 생성 수가 1개이고 추가 buffer source가 0개이며, 모든 채널을 Mute해도 원본의 재생 / 볼륨 / 음소거가 바뀌지 않는지도 검사합니다.
 
 ## 생성 / 수정 파일
 
@@ -129,4 +167,4 @@ Phase 2 검증에서는 실제 MP3 / WAV / FLAC / M4A의 내장 태그를 읽고
 
 한 곡의 재생 시간은 HTMLAudioElement 하나가 관리하며, 전역 snapshot을 React 컴포넌트에서 구독합니다. 재생 버튼의 사용자 동작 안에서 AudioContext를 생성 / resume하고 `MediaElementAudioSourceNode → destination`으로 연결합니다. Web Audio API가 없는 브라우저는 HTMLAudioElement 기본 출력으로 재생합니다.
 
-파일을 통째로 AudioBuffer로 디코딩하지 않아 긴 음악을 위한 메모리 복사를 피합니다. 파일 교체 시 이전 Object URL을 해제하고 재생을 멈춥니다. 비동기 play가 진행 중일 때 파일이 바뀌면 이전 작업의 결과는 무시합니다. 메타데이터와 가사도 같은 AudioEngine 및 playback state에 연결되어 있으며, 두 번째 재생 엔진은 없습니다. Phase 3 이후 개발은 별도 요청에 따라 진행합니다.
+파일을 통째로 AudioBuffer로 디코딩하지 않아 긴 음악을 위한 메모리 복사를 피합니다. 파일 교체 시 이전 Object URL을 해제하고 재생을 멈춥니다. 비동기 play가 진행 중일 때 파일이 바뀌면 이전 작업의 결과는 무시합니다. 메타데이터와 가사도 같은 AudioEngine 및 playback state에 연결되어 있으며, 두 번째 재생 엔진은 없습니다. Phase 4 이후 개발은 별도 요청에 따라 진행합니다.

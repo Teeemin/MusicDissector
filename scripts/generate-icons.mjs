@@ -35,7 +35,7 @@ function icon(size, maskable = false) {
         const by = Math.max(Math.abs(ny - 0.5) - height / 2 + 0.018, 0)
         return bx * bx + by * by <= 0.018 ** 2
       })
-      const color = wave ? [38, 51, 24] : inside ? [210, 246, 139] : [16, 18, 16]
+      const color = wave ? [255, 255, 255] : inside ? [109, 167, 242] : [255, 255, 255]
       const offset = y * (size * 3 + 1) + 1 + x * 3
       raw.set(color, offset)
     }
