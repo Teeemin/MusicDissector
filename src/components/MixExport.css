@@ -1,0 +1,8 @@
+.mix-export { margin-top: 16px; }
+.mix-export-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.mix-export-actions button { min-height: 44px; padding: 10px 14px; border: 1px solid var(--border-control); border-radius: 7px; color: var(--accent-strong); background: var(--bg-surface-raised); font-size: 12px; }
+.mix-export-actions button:hover:not(:disabled) { background: var(--bg-hover); }
+.mix-export-actions button:disabled { opacity: .45; }
+.mix-export small { display: block; font-size: 11px; color: var(--text-secondary); line-height: 1.8; overflow-wrap: anywhere; }
+.mix-export p { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--text-secondary); line-height: 1.8; }
+.mix-export .mix-export-error { color: var(--error-text); }

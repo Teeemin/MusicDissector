@@ -9,7 +9,7 @@ export default defineConfig({
   // dependency crawl. Discover them now: late optimization triggers a full dev
   // page reload, which discards the user's session-only File and audio buffers.
   optimizeDeps: {
-    include: ['music-metadata', 'essentia.js/dist/essentia.js-core.es.js', 'onnxruntime-web/all'],
+    include: ['music-metadata', 'essentia.js/dist/essentia.js-core.es.js', 'onnxruntime-web/all', 'mediabunny', '@mediabunny/mp3-encoder'],
   },
   worker: { format: 'es' },
   server: {

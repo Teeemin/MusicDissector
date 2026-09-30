@@ -1,5 +1,34 @@
 # Third-party sources and licenses
 
+## Browser MP3 export
+
+- `mediabunny` **1.61.0**: Mozilla Public License 2.0 (MPL-2.0).
+- `@mediabunny/mp3-encoder` **1.61.0**: Mozilla Public License 2.0 (MPL-2.0).
+
+Copyright (c) 2026-present, Vanilagy and contributors.
+Source and corresponding package build instructions:
+https://github.com/Vanilagy/mediabunny/tree/v1.61.0
+and https://github.com/Vanilagy/mediabunny/tree/v1.61.0/packages/mp3-encoder .
+Full license: https://www.mozilla.org/MPL/2.0/ . Both installed npm packages
+include the full MPL-2.0 text in `LICENSE` and their corresponding TypeScript
+sources. These packages are used without source modifications.
+
+The official MP3 extension embeds **LAME 3.100**, licensed under the **LGPL**.
+Music Dissector acknowledges the LAME Project and contributors:
+https://lame.sourceforge.io/ (also https://www.mp3dev.org/).
+License information: https://lame.sourceforge.io/license.txt .
+Corresponding LAME source, including `COPYING`, is available at
+https://sourceforge.net/projects/lame/files/lame/3.100/ .
+The extension's README documents the encoder-only WASM build and bridge
+rebuild procedure; its build disables the decoder and frontend. Music
+Dissector does not modify LAME or the bridge. Encoder Worker and WASM are
+included in the application bundle, with no CDN or remote encoding service.
+
+Mediabunny muxes MP3/ID3 metadata and consumes bounded audio chunks. Native
+MP3 support is checked first; the official LAME extension is registered when
+native support for the requested stereo/44.1 kHz/320 kbps configuration is absent.
+This license information does not change the licenses of existing dependencies.
+
 ## BS-RoFormer browser DSP code
 
 Source: https://github.com/elicwhite/bs-roformer-web

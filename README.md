@@ -1,5 +1,57 @@
 # Music Dissector · Phase 6
 
+## 현재 믹스 내보내기 (MP3)
+
+Dissector 아래 **현재 믹스 내보내기**는 6개 stem이 준비되면 활성화됩니다.
+AI 분리 직후와 저장 프로젝트 복원 후 모두 사용할 수 있습니다. 버튼을
+누른 시점의 volume/mute/solo/multi-solo를 기존 `effectiveGain` 함수로
+캡처하며 preset도 적용된 현재 상태를 사용합니다. Player의 Original/Stem Mix,
+master volume/mute, Repeat, 현재 재생 위치는 내보내기에 영향을 주지 않습니다.
+재생 transport와 믹서 설정을 수정하지 않습니다.
+
+`src/export/`는 snapshot → 입력 검증 → `OfflineAudioContext` stereo/44.1 kHz
+렌더링 → 피크 검사 → MP3 인코딩 → 다운로드를 담당합니다. 6개 source는 모두
+0초에 시작하며 buffer를 deep copy하지 않습니다. 샘플레이트·채널·프레임 길이가
+맞지 않거나 NaN/Infinity가 있으면 오류를 표시합니다. 출력 absolute peak가
+0.99를 넘을 때만 전체 PCM에 `0.99 / peak`를 적용하여 상대 밸런스를 유지합니다.
+이는 인코딩 전 PCM의 피크 보정이며 손실 MP3 디코딩 후에는 미세한 overshoot가
+생길 수 있습니다. limiter/compressor/loudness 처리는 없습니다.
+
+`mediabunny@1.61.0`과 `@mediabunny/mp3-encoder@1.61.0`을 사용합니다.
+`Quality({ bitrate: 320_000, bitrateMode: 'constant' })`로 CBR 320 kbps를
+요청하며 native 지원이 없으면 공식 LAME WASM extension을 등록합니다.
+`AudioBufferSource`는 렌더 결과를 제한된 크기의 청크로 encoder Worker에
+전달합니다. encoder/Worker/WASM은 Vite lazy bundle과 PWA precache에 포함되어
+CDN 없이 오프라인에서도 동작합니다. Vite optimizeDeps에도 추가하여 첫
+내보내기 중 새 의존성 발견에 의한 개발 서버 reload를 방지합니다.
+
+title/artist/album 및 사용 가능한 artwork를 ID3로 기록하며 가사는 포함하지
+않습니다. 다운로드 이름은 안전한 `<곡 제목> - MuDissector Mix.mp3`입니다.
+작업 단계만 표시하고 가짜 진행률은 사용하지 않습니다. 중복 실행 방지,
+취소와 session/buffer 교체 감지, 오류별 안내를 지원합니다. OfflineAudioContext는
+중간 종료 API가 없어 취소 시 렌더 완료 후 결과를 폐기하며, 인코더는 cancel로
+정리합니다. 다운로드 Object URL은 30초 후 또는 pagehide 시 해제합니다.
+앱은 결과를 업로드하거나 OPFS에 자동 저장하지 않습니다. 프로젝트 저장 상태,
+기존 FLAC와 schema, 추론/DSP/모델 cache/proxy는 변경하지 않았습니다.
+
+회귀 테스트: `tests/export.spec.ts`, `tests/export-render.spec.ts`,
+`tests/fixtures/exportHarness.ts`. 합성 6-stem의 서로 다른 주파수를 실제 MP3에서
+측정하여 volume/mute/solo/preset, ID3/artwork, stereo/44.1 kHz/320 kbps,
+재생 유지, 저장 프로젝트, 취소·실패 재시도 및 오프라인 첫 내보내기를 검증합니다.
+테스트용 합성 Worker만 사용하며 BS-RoFormer 추론을 재실행하지 않습니다.
+라이선스와 원본 source 링크는 `THIRD_PARTY_NOTICES.md`에 기록했습니다.
+
+완료 검증: build/lint/diff check 통과, 전체 E2E **134개 통과** (기존 114 +
+신규 20, 2.3분). 기존 ONNX Runtime direct-eval 경고는 그대로입니다.
+별도 Chromium 확인에서 12초 합성 stem의 Guitar Mute MP3를 다운로드한 뒤
+앱에 다시 불러와 재생했습니다. 파일은 483,214 bytes, stereo/44.1 kHz,
+디코딩 길이 12.04245초(MP3 padding 포함)였으며 Guitar 550 Hz 성분은 약
+98.68 dB 감소하고 나머지 5개 성분은 유지됐습니다. 320/412/800/1440px
+화면의 가로 넘침도 없었습니다. 결과 파일과 측정치는 실행 환경의
+`test-results/manual-export/`에 있으며 다음 테스트 실행 시 삭제될 수 있습니다.
+실제 음악의 청취 평가나 물리적인 Fold7 기기 검증은 수행하지 않았습니다.
+HTTPS 배포 및 Git commit/push는 수행하지 않았습니다.
+
 React + TypeScript + Vite 기반의 모바일 우선 로컬 음악 플레이어입니다. 기존 Vite 프로젝트를 이어서 구현했습니다.
 
 ## 구현 범위

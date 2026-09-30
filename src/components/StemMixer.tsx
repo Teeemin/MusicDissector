@@ -8,6 +8,7 @@ import { SeparationPanel } from './SeparationPanel'
 import { usePlayback } from '../stores/playbackStore'
 import { ProjectSaveControls } from './SavedProjects'
 import { audioEngine } from '../audio/AudioEngine'
+import { MixExport } from './MixExport'
 
 export function StemMixer() {
   const { trackId, channels, error, separationStatus } = useMixer()
@@ -23,6 +24,7 @@ export function StemMixer() {
       <div className="stem-grid">{STEM_DEFINITIONS.map(({ id }) => <StemChannel key={id} channel={channels[id]} gain={effectiveGain(channels, id)} disabled={disabled} />)}</div>
       <p className="mixer-help">{disabled ? '음악 파일을 선택하면 믹서 설정을 조절할 수 있어요.' : 'Solo는 여러 채널을 함께 선택할 수 있어요. Mute는 Solo보다 우선합니다.'}</p>
       <ProjectSaveControls />
+      <MixExport />
       {error && <p className="error-message" role="alert">{error}</p>}
     </section>
   )
