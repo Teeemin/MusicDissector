@@ -50,7 +50,7 @@ export function FilePicker() {
         <div className="file-copy"><p title={track?.fileName}>{track?.fileName ?? '아직 선택한 음악이 없어요'}</p><span>{track ? `${track.format} · ${formatFileSize(track.size)} · 로컬 파일` : '내 기기에 있는 음악으로 시작하세요'}</span></div>
         {track && <Icon name="check" className="file-check" />}
       </div>
-      <p className="session-note">앱을 다시 열면 음악 파일을 다시 선택해 주세요.</p>
+      <p className="session-note">저장하지 않은 음악은 앱을 다시 열 때 다시 선택해 주세요.</p>
     </>
   )
 }

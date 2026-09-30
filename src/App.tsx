@@ -4,6 +4,7 @@ import { Icon } from './components/Icon'
 import { Player } from './components/Player'
 import { PwaControls } from './components/PwaControls'
 import { LyricsPanel } from './components/LyricsPanel'
+import { SavedProjects } from './components/SavedProjects'
 import { StemMixer } from './components/StemMixer'
 import { audioEngine } from './audio/AudioEngine'
 import { removeLegacyChordCache } from './analysis/analysisCache'
@@ -52,6 +53,7 @@ function App() {
           <Player />
           <LyricsPanel />
           <StemMixer />
+          <SavedProjects />
         </div>
 
         <div className="workspace-footer">

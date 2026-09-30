@@ -1,0 +1,22 @@
+.saved-projects { grid-column: 1 / -1; min-width: 0; padding: 24px 28px; border: 1px solid var(--border); border-radius: 15px; background: var(--bg-surface); box-shadow: var(--shadow-soft); }
+.project-save { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.project-save p, .project-storage, .project-empty, .project-info p { font-size: 12px; color: var(--text-secondary); line-height: 1.8; overflow-wrap: anywhere; }
+.project-save small, .project-storage small, .project-info small { display: block; font-size: 11px; color: var(--text-secondary); line-height: 1.8; overflow-wrap: anywhere; }
+.project-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.project-actions button, .saved-projects > .section-heading button { min-height: 44px; padding: 10px 14px; border: 1px solid var(--border-control); border-radius: 7px; color: var(--accent-strong); background: var(--bg-surface-raised); font-size: 12px; }
+.project-actions button:hover:not(:disabled), .saved-projects > .section-heading button:hover:not(:disabled) { background: var(--bg-hover); }
+.project-actions button:disabled, .saved-projects > .section-heading button:disabled { opacity: .45; }
+.project-progress { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--text-secondary); font-size: 12px; }
+.project-storage { margin: 12px 0; }
+.project-list { margin: 0; padding: 0; list-style: none; }
+.project-list article { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--border); padding: 14px 0; }
+.project-info { min-width: 0; }
+.project-info h3 { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.project-list .project-actions { flex-shrink: 0; }
+.project-save .project-error, .project-info .project-error { color: var(--error-text); }
+.project-dialog .project-actions { justify-content: flex-end; }
+@media (max-width: 699px) {
+  .saved-projects { padding: 20px 16px; }
+  .saved-projects > .section-heading { flex-wrap: wrap; }
+  .project-list article { align-items: flex-start; flex-direction: column; gap: 4px; }
+}

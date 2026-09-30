@@ -4,6 +4,7 @@ import { mixerStore } from '../mixer/mixerStore'
 import { analysisStore } from '../analysis/analysisStore'
 import { separationStore } from '../separation/separationStore'
 import { StemAudioEngine } from './StemAudioEngine'
+import type { LoadedProject } from '../projects/projectTypes'
 
 const initialState: PlaybackState = {
   mode: 'original',
@@ -27,6 +28,7 @@ export class AudioEngine {
   private context: AudioContext | null = null
   private source: MediaElementAudioSourceNode | null = null
   private objectUrl: string | null = null
+  private originalFile: File | null = null
   private artworkUrl: string | null = null
   private metadataAbort: AbortController | null = null
   private generation = 0
@@ -38,6 +40,7 @@ export class AudioEngine {
   private transportGeneration = 0
 
   getSnapshot = (): PlaybackState => this.state
+  getOriginalFile = () => this.originalFile
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener)
@@ -83,7 +86,7 @@ export class AudioEngine {
   }
 
   /** Validate first so a rejected file never interrupts the current song. */
-  loadFile(file: File): string | null {
+  loadFile(file: File, restored?: LoadedProject): string | null {
     const extension = file.name.split('.').pop()?.toLowerCase() ?? ''
     if (!['mp3', 'wav', 'flac', 'm4a'].includes(extension)) {
       return 'MP3, WAV, FLAC, M4A 파일을 선택해 주세요.'
@@ -103,8 +106,11 @@ export class AudioEngine {
     audio.load()
     if (this.objectUrl) URL.revokeObjectURL(this.objectUrl)
     this.objectUrl = nextUrl
+    this.originalFile = file
+    if (restored?.artwork) this.artworkUrl = URL.createObjectURL(restored.artwork)
     this.update({
       ...initialState,
+      mode: restored ? 'stems' : 'original',
       volume: audio.volume,
       muted: audio.muted,
       repeatEnabled: this.state.repeatEnabled,
@@ -121,13 +127,22 @@ export class AudioEngine {
         artworkUrl: null,
         metadataStatus: 'loading',
         lyrics: { kind: 'none' },
+        ...(restored ? {
+          name: restored.record.title, artist: restored.record.artist, album: restored.record.album,
+          metadataDuration: restored.record.duration, artworkUrl: this.artworkUrl, metadataStatus: 'ready' as const,
+          lyrics: restored.record.lyrics ? { kind: 'plain' as const, text: restored.record.lyrics } : { kind: 'none' as const },
+          projectId: restored.record.id,
+        } : {}),
       },
     })
     audio.src = nextUrl
     audio.load()
-    this.metadataAbort = new AbortController()
-    void this.loadMetadata(file, this.generation, this.metadataAbort.signal)
-    mixerStore.selectFile(file, this.generation)
+    if (restored) mixerStore.restoreProject(restored.result, restored.record.mixer, this.generation)
+    else {
+      this.metadataAbort = new AbortController()
+      void this.loadMetadata(file, this.generation, this.metadataAbort.signal)
+      mixerStore.selectFile(file, this.generation)
+    }
     separationStore.selectFile(file, this.generation)
     if (!this.mixerUnsubscribe) this.mixerUnsubscribe = mixerStore.subscribe(() => {
       const mix = mixerStore.getSnapshot()
@@ -139,7 +154,8 @@ export class AudioEngine {
         if (this.audio && this.state.isReady) this.audio.currentTime = time
       }
     })
-    analysisStore.selectFile(file, this.generation)
+    if (restored) analysisStore.restoreProject(file, this.generation, restored.record.analysis)
+    else analysisStore.selectFile(file, this.generation)
     return null
   }
 
@@ -301,6 +317,7 @@ export class AudioEngine {
     this.context = null
     this.source = null
     this.objectUrl = null
+    this.originalFile = null
     this.update(initialState)
   }
 }

@@ -15,7 +15,7 @@ React + TypeScript + Vite 기반의 모바일 우선 로컬 음악 플레이어�
 - 내장 USLT / SYLT / LRC 가사를 정적 텍스트로 표시하는 접이식 패널 (기본 닫힘)
 - BPM / beat 분석, 실제 AI 6-stem 분리와 믹서
 
-**Phase 6까지 구현한 앱의 배포 전 UI/UX 정리 상태입니다.** Key / Chord 분석과 재생 연동 가사는 제거했습니다. 사용자 확인상 BS-RoFormer 실제 분리는 정상 동작하며 `phase6-stable` 태그가 기존 기준점입니다. 이후 반영된 6분 길이 제한 및 믹서 조작 시 Stem Mix 전환도 유지합니다. 이번 작업에서 모델, 추론, DSP, 청크, OPFS, 믹서 gain 계산은 변경하지 않았습니다. 배포나 다음 Phase 구현은 포함하지 않습니다.
+**Phase 6까지 구현한 앱의 배포 전 UI/UX 정리 상태입니다.** Key / Chord 분석과 재생 연동 가사는 제거했습니다. 사용자 확인상 BS-RoFormer 실제 분리는 정상 동작하며 `phase6-stable` 태그가 기존 기준점입니다. 이후 반영된 6분 길이 제한 및 믹서 조작 시 Stem Mix 전환도 유지합니다. 이번 작업에서 모델, 추론, DSP, 청크, 모델 OPFS cache, 믹서 gain 계산은 변경하지 않았습니다. 배포나 다음 Phase 구현은 포함하지 않습니다.
 
 ## Phase 6: 실제 AI Stem Separation
 
@@ -23,7 +23,7 @@ React + TypeScript + Vite 기반의 모바일 우선 로컬 음악 플레이어�
 2. **모델 다운로드**를 눌러 최초 한 번 모델을 기기에 저장합니다. 자동으로 모델을 받거나 음악을 업로드하지 않습니다.
 3. **분리 시작**을 누릅니다. 기존 BPM 자동 분석이 진행 중이면 먼저 끝나기를 기다립니다. 모델 로드, 오디오 준비, 청크 추론, 결과 준비를 구분하며 다운로드는 실제 수신 bytes, 분리는 완료 청크 수를 표시합니다. 첫 청크의 shader compilation이 오래 걸릴 수 있으며 가짜 진행률을 만들지 않습니다.
 4. 완료 후 플레이어의 **Original / Stem Mix**로 같은 위치에서 A/B 비교합니다. Original은 원본 그대로, Stem Mix는 실제 여섯 결과 버퍼입니다. Stem Mix에서 볼륨, Mute, Solo/multi-solo, 기존 5개 프리셋이 실제 소리에 적용됩니다. 믹서의 Original 프리셋은 모든 stem 설정 초기화이며 플레이어의 원본 소스 선택과 구분됩니다.
-5. **Guitar Solo**, **No Guitar**, Guitar 볼륨으로 기타 분리/감쇠를 확인합니다. 새 파일을 선택하면 이전 작업, 결과와 믹서 설정이 초기화됩니다. 새로고침 시 모델만 남고 음원과 stem은 다시 선택/분리해야 합니다.
+5. **Guitar Solo**, **No Guitar**, Guitar 볼륨으로 기타 분리/감쇠를 확인합니다. 새 파일을 선택하면 이전 작업, 결과와 믹서 설정이 초기화됩니다. 명시적으로 저장하지 않은 음원과 stem은 새로고침 시 다시 선택/분리해야 합니다. 저장한 프로젝트는 아래 로컬 프로젝트 목록에서 복원할 수 있습니다.
 
 분리 후 Original을 듣는 상태에서 채널 볼륨 / Mute / Solo / 프리셋을 조작하면 **같은 위치의 Stem Mix로 자동 전환**해 설정을 바로 들을 수 있습니다. 일시 정지 상태에서는 소스만 전환하고 재생은 시작하지 않습니다. 믹서 안내에 현재 소스를 표시하며 **Stem Mix로 듣기** 버튼도 제공합니다. 분리 전에는 채널 설정 동작을 유지합니다. 원본 A/B 비교는 재생기의 Original 버튼으로 선택합니다.
 
@@ -128,7 +128,7 @@ npm run test:e2e
 
 Playwright는 프로덕션 빌드 후 localhost:4173에서 실행합니다. Linux 브라우저 시스템 라이브러리는 별도로 필요할 수 있습니다. 전체 suite에는 파일 선택 / playback / seek / metadata / 정적 가사 dropdown / BPM과 v1 캐시 교체 / 6채널 볼륨·mute·solo·multi-solo·preset / OPFS / separation 구조 / Original·Stem Mix / 파일 교체 초기화 / 오프라인 PWA / 320·412·800px / 버튼 색상·누름·모션 감소가 포함됩니다. 모델과 추론 테스트의 범위는 위 Phase 6 검증 설명을 참고하세요.
 
-음악 파일은 서버로 업로드하거나 영구 저장하지 않습니다. 새로고침 후 파일을 다시 선택해야 합니다. 모델은 OPFS에 유지되며 사이트 저장소 삭제 시 다시 받아야 합니다. 이번 정리 작업에서는 HTTPS 배포를 수행하지 않습니다.
+음악 파일은 서버로 업로드하거나 자동으로 영구 저장하지 않습니다. 사용자가 분리 결과 저장을 누른 프로젝트만 기기에 보관합니다. 저장하지 않은 세션은 새로고침 후 파일을 다시 선택해야 합니다. 모델은 OPFS에 유지되며 사이트 저장소 삭제 시 다시 받아야 합니다. 이번 정리 작업에서는 HTTPS 배포를 수행하지 않습니다.
 
 검증 결과 (2026-09-30 UI/UX 정리): `npm run build`, `npm run lint`, `git diff --check` 통과. 전체 Playwright suite **78개 통과, 실패/건너뜀 없음** (46.5초). 기존 ONNX Runtime 내부 direct eval 빌드 경고는 유지되며 빌드 오류는 없습니다. 실제 FP16 모델 추론은 이번 자동 suite에서 재실행하지 않았습니다.
 
@@ -141,3 +141,69 @@ Playwright는 프로덕션 빌드 후 localhost:4173에서 실행합니다. Linu
 이번 수정 파일: `src/components/Player.tsx`, `Icon.tsx`, `AnalysisSummary.css`, `src/App.css`, `src/types/audio.ts`, `src/audio/AudioEngine.ts`, `tests/player.spec.ts`, `tests/phase6.spec.ts`, `README.md`. StemAudioEngine, separation 모델 / Worker / DSP / chunk / cache, BPM 분석 로직은 변경하지 않았습니다.
 
 Player 변경 검증 (2026-09-30): build / lint / 전체 87개 테스트 통과 (53.6초), git diff --check 통과. 동일한 artwork·제목·아티스트·앨범을 가진 합성 음원으로 측정한 카드 높이는 320/412px 화면에서 787→649px (17.5%), 800px에서 805→654px (18.8%), 1280px에서 838→693px (17.3%)입니다. 메타데이터 줄 수에 따라 실제 높이는 달라집니다. 테스트는 실제 HTMLAudioElement 반복 및 합성 stem의 실제 Web Audio 반복 / 동시 시작 / gain 유지 / OFF 종료를 확인합니다. 기존 ONNX Runtime direct eval 빌드 경고 외 오류는 없으며 실제 AI 모델 추론을 다시 실행하거나 배포하지 않았습니다.
+
+
+## 로컬 분리 프로젝트 저장
+
+기본 동작은 **Session Only**입니다. AI 분리가 끝나도 프로젝트를 자동으로 저장하지 않습니다. Dissector 아래 **분리 결과 저장**을 누를 때만 6개 stem, 원본 파일, metadata, artwork, 가사 텍스트, 당시 BPM 결과 및 volume/mute/solo 설정을 저장합니다. 원본은 재실행 후에도 Original / Stem Mix 비교와 사용자가 요청한 BPM 재분석을 유지하기 위해 함께 저장합니다. Key/Chord는 저장하지 않습니다.
+
+**저장된 분리 결과** 목록에서 제목 / 가수 / 저장 시각 / 실제 미디어 파일 byte 합계와 불러오기 / 삭제를 제공합니다. 저장 공간 표시는 `navigator.storage.estimate()`의 사이트 전체 사용량과 할당량이며 모델 / PWA 캐시도 포함합니다. 다운로드 폴더나 서버에 저장하지 않습니다.
+
+### 저장 위치 / 스키마
+
+```text
+OPFS /
+  music-dissector-models/          # 기존 모델 cache: 변경 없음
+  music-dissector-projects/
+    p-<uuid>/
+      original.audio              # 원본 bytes 그대로, 원래 이름/MIME는 IDB
+      artwork                     # 있는 경우만, 원래 MIME는 IDB
+      vocals.flac                 # stem별 FLAC 또는 WAV fallback
+      guitar.flac
+      piano.flac
+      drums.flac
+      bass.flac
+      others.flac
+
+IndexedDB music-dissector-projects (DB version 1)
+  projects [keyPath: id]
+  jobs     [keyPath: id]           # writing / deleting 복구 기록
+```
+
+프로젝트 형식 v1: id, appVersion, version, title/artist/album/duration, originalFilename/Type/LastModified/Bytes, artwork MIME/bytes, savedAt/updatedAt, 전체 미디어 bytes, 가사 텍스트, 선택적인 BPM 결과, 6개 stem의 파일명/형식/frames/channels/sampleRate/bytes, 6개 채널의 volume/muted/solo. 파일 경로는 정해진 이름만 허용하고 길이·채널·크기·설정·버전을 읽기 전에 검증합니다. 호환되지 않는 버전은 자동 삭제하지 않고 불러오기만 막으며 사용자가 삭제할 수 있습니다.
+
+### 실제 FLAC / WAV 저장
+
+새 dependency **`libflacjs@5.6.0`** (MIT)를 추가했습니다. [공식 프로젝트](https://github.com/mmig/libflac.js)의 WebAssembly encoder를 별도 Worker에서 실행합니다. 샘플 16,384개씩 한 번에 한 블록만 전달하고 OPFS write 완료 후 다음 블록을 보냅니다. 전체 곡의 인코딩 결과를 한 ArrayBuffer에 모으지 않습니다. 인코더와 WASM은 PWA에 포함되어 오프라인에서도 사용할 수 있습니다.
+
+기본 형식은 **FLAC / 24-bit PCM / 44.1 kHz**입니다. Float32 stem을 24-bit 정수로 양자화한 PCM을 무손실 압축하므로 원래 Float32와 비트 단위로 동일하지는 않습니다. 인코더 verify를 켜고, 완료 후 STREAMINFO의 frame 크기와 MD5를 기록합니다. 테스트에서 파일의 실제 `fLaC` 헤더, native decoder 복원 및 sample 오차를 검증합니다.
+
+인코더 실패·초기화/응답 실패 또는 Float32 값이 정수 PCM 범위 밖인 경우에는 해당 stem만 **IEEE Float32 WAV**로 다시 기록합니다. `.wav` 확장자와 `wav-float32` 형식을 기록하므로 가짜 FLAC이 아닙니다. 오버슈트를 clipping하지 않습니다. 저장 공간 부족은 더 큰 WAV로 재시도하지 않고 롤백합니다. 최악의 WAV 용량과 원본을 기준으로 여유 공간을 먼저 확인하며, 브라우저의 실제 quota 실패도 처리합니다.
+
+### 복원 / 명시적인 설정 저장
+
+불러오기는 모델을 받거나 AI를 다시 실행하지 않습니다. 원본·artwork와 6개 stem을 검증하고, FLAC은 44.1 kHz OfflineAudioContext에서 stem별로 decode, WAV는 작은 블록으로 AudioBuffer에 복원합니다. 전부 성공하면 기존 AudioEngine / MixerStore에 한 번에 연결하고 Stem Mix를 선택한 일시 정지 상태로 준비합니다. 기존 StemAudioEngine은 변경하지 않았습니다. 재생, seek, Repeat, presets, mute/solo/multi-solo, Original 비교가 그대로 동작합니다.
+
+로드 중 취소·새 파일 선택·손상이 발생하면 이전 세션을 유지하거나 사용자의 새 파일을 존중합니다. 한 번에 6개의 복원된 AudioBuffer가 필요하며 기존 세션은 검증 완료 전까지 남아 있습니다. 긴 곡에서는 기기의 메모리 한도에 영향을 받을 수 있습니다. 저장은 순차 스트리밍이며 FLAC decode도 한 stem씩 수행합니다.
+
+Mixer를 바꿔도 자동 저장하지 않습니다. **현재 설정 저장**은 IDB의 mixer 및 updatedAt만 바꾸며 OPFS 오디오를 다시 쓰지 않습니다. 저장 도중 변경한 설정도 저장 버튼을 누른 시점의 snapshot과 구분됩니다. 새 파일 / 재분리 결과는 기존 프로젝트 설정에 잘못 연결되지 않습니다.
+
+### 삭제 / 중단 복구 / 저장소 보호
+
+삭제 확인을 받은 뒤 `jobs`에 삭제 의도를 기록하고 프로젝트 OPFS 디렉터리 전체를 지운 다음 IDB metadata와 journal을 함께 제거합니다. 사용 중인 해당 프로젝트는 재생과 세션 참조도 해제합니다. 모델 디렉터리에는 접근하지 않습니다. 모델 삭제 역시 기존 구현 그대로라 프로젝트를 지우지 않습니다.
+
+OPFS와 IDB는 하나의 원자적 transaction을 공유할 수 없어 journal로 복구합니다. 신규 저장은 `writing` 기록 → OPFS 파일 작성 → IDB metadata 확정과 journal 제거 순서입니다. 실패/취소 시 정리하며, 브라우저 강제 종료 또는 삭제 실패로 남은 작업은 다음 목록 조회/재실행에서 다시 정리합니다. 정리 실패 항목은 재시도할 수 있도록 목록에 남깁니다. metadata 없는 프로젝트 디렉터리도 자체 namespace 내에서만 회수합니다. Web Locks로 여러 탭의 저장/복구/불러오기/삭제를 직렬화하여 진행 중인 다른 탭의 파일을 orphan으로 지우지 않습니다.
+
+첫 명시적 저장 시 세션당 한 번 `navigator.storage.persist()`를 요청합니다. 거절/미지원이어도 일반 저장을 진행합니다. 영구 저장 허용 여부를 UI에 표시하며, 사이트 데이터 직접 삭제는 어떤 경우에도 저장 결과를 지웁니다. OPFS / IndexedDB / Web Locks를 사용할 수 없는 환경에서는 프로젝트 저장을 비활성화하고 기존 세션 재생을 유지합니다.
+
+### 변경 파일과 검증 범위
+
+- 신규: `src/projects/{projectTypes,projectDatabase,ProjectRepository,projectStore,stemStorage,wavStorage,flac.worker}.ts`, `src/components/SavedProjects.tsx`, `SavedProjects.css`.
+- 연결: `App.tsx`, `StemMixer.tsx`, `FilePicker.tsx`, `AudioEngine.ts`, `mixerStore.ts`, `analysisStore.ts`, `types/audio.ts`.
+- 의존성/문서: `package.json`, `package-lock.json`, `THIRD_PARTY_NOTICES.md`, `README.md`.
+- 테스트: `tests/projects.spec.ts`, 기존 Phase 6의 합성 추론 helpers를 공유하는 `tests/fixtures/separationHarness.ts`, `tests/phase6.spec.ts`.
+- BS-RoFormer 추론, 모델 다운로드/cache, chunk/DSP, StemAudioEngine, mixer gain 규칙, Player UI는 변경하지 않았습니다.
+
+현재 작업 트리에는 MP3 믹스 내보내기 기능이 없습니다. 이번 기능은 프로젝트 저장에 한정되며 MP3 bounce/download를 추가하거나 이를 프로젝트 저장으로 대체하지 않습니다. HTTPS 배포도 진행하지 않습니다.
+
+프로젝트 저장 최종 검증 (2026-09-30): `npm run build`, `npm run lint`, `git diff --check` 통과. 전체 **100개 테스트 통과** (기존 87 + 프로젝트 13, 실패/건너뜀 없음, 1.3분). 실제 FLAC 인코딩 / 파일 헤더 / native decoding 샘플 오차 / OPFS·IndexedDB / 모델 없는 오프라인 재생 / 설정만 갱신 / 삭제·quota·취소·복구·동시 탭·손상·버전·늦은 로드 처리를 검증했습니다. AI 분리 테스트는 기존 합성 추론 fixture를 사용하며 실제 FP16 모델을 재실행하지 않았습니다. 기존 ONNX Runtime 내부 direct eval 빌드 경고 외 오류는 없습니다.

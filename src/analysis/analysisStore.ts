@@ -1,8 +1,8 @@
 import { MusicAnalysisEngine } from './MusicAnalysisEngine'
 import { fingerprint, IndexedAnalysisCache } from './analysisCache'
 import type { AnalysisCache } from './analysisCache'
-import { validResult } from './analysisTypes'
-import type { AnalysisEngine, AnalysisState } from './analysisTypes'
+import { ANALYSIS_VERSION, validResult } from './analysisTypes'
+import type { AnalysisEngine, AnalysisState, MusicAnalysisResult } from './analysisTypes'
 
 const idle = (): AnalysisState => ({ trackId: null, status: 'idle', stage: null, result: null, cached: false })
 export class AnalysisStore {
@@ -25,6 +25,11 @@ export class AnalysisStore {
   selectFile(file: File, trackId: number) {
     this.file = file
     void this.run(file, trackId, false)
+  }
+  restoreProject(file: File, trackId: number, result: MusicAnalysisResult | null) {
+    this.clear()
+    this.file = file
+    this.update({ trackId, status: 'complete', cached: true, result: validResult(result) ? result : { bpm: null, beats: [], confidence: {}, engineVersion: ANALYSIS_VERSION } })
   }
   reanalyze = () => {
     if (this.file && this.state.trackId !== null) void this.run(this.file, this.state.trackId, true)

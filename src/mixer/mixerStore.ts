@@ -4,6 +4,7 @@ import type { StemResult } from '../separation/StemSeparationEngine'
 import { createChannels, withPreset } from './mixerRules'
 import { STEM_DEFINITIONS } from './mixerTypes'
 import type { MixerPresetId, MixerState, StemId } from './mixerTypes'
+import type { MixerSettings } from '../projects/projectTypes'
 
 const initialState = (): MixerState => ({ trackId: null, channels: createChannels(), separationStatus: 'idle', error: null })
 
@@ -62,6 +63,17 @@ export class MixerStore {
     for (const { id } of STEM_DEFINITIONS) channels[id] = { ...channels[id], source: result.stems[id], status: 'ready', error: null }
     this.update({ ...this.state, channels, separationStatus: 'ready', error: null })
     return true
+  }
+
+  restoreProject(result: Extract<StemResult, { processed: true }>, settings: MixerSettings, trackId: number) {
+    this.abort?.abort()
+    this.abort = null
+    const channels = createChannels()
+    for (const { id } of STEM_DEFINITIONS) channels[id] = {
+      ...channels[id], volume: settings[id].volume, muted: settings[id].muted, solo: settings[id].solo,
+      source: result.stems[id], status: 'ready',
+    }
+    this.update({ trackId, channels, separationStatus: 'ready', error: null })
   }
 
   clearSources(trackId: number) {

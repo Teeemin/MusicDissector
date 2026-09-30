@@ -1,6 +1,7 @@
 import type { LyricsDocument } from '../lyrics/types'
 
 export interface LocalTrack {
+  projectId?: string
   id: number
   name: string
   fileName: string
