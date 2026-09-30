@@ -219,3 +219,45 @@ OPFS와 IDB는 하나의 원자적 transaction을 공유할 수 없어 journal�
 회귀 테스트: `tests/startup-dev.spec.ts`는 독립적인 빈 Vite 캐시와 실제 개발 서버에서 첫 파일의 metadata/artwork·실제 Essentia BPM·재생 및 자동 reload 부재를 검사하고, StrictMode effect replay와 App 재마운트 후 선택·재생·Repeat 유지도 검증합니다. `tests/startup.spec.ts`는 fresh context에서 복구 전과 storage estimate 완료 전을 Promise gate로 각각 막은 뒤 파일을 한 번만 선택하고, 뒤늦은 journal/orphan 정리·저장 목록 갱신 후에도 metadata·재생·seek·분리가 유지되는지 검사합니다. 분리 Worker 응답은 기존 합성 fixture이며 실제 AI 모델을 실행하는 테스트는 아닙니다.
 
 수정 후 검증: `npm run build`, `npm run lint`, `npm run test:e2e` 통과. 전체 **103개 통과** (기존 100 + 시작/StrictMode 회귀 3, 1.5분). 기존 ONNX Runtime 내부 direct eval 경고 외 build/lint 오류는 없습니다. 임시 diagnostic log는 앱 코드에 남기지 않았습니다.
+
+## Cloudflare Workers 모델 다운로드 프록시
+
+브라우저의 모델 다운로드 URL은 개발/preview/production 모두 **`/api/model/bs-roformer-sw-6stem-fp16`**입니다. 브라우저는 Hugging Face나 signed CDN 주소를 직접 요청하지 않습니다. `worker/modelProxy.ts`가 다음 upstream을 서버에서 `redirect: 'follow'`로 요청하고 `new Response(upstream.body, …)`로 그대로 전달합니다.
+
+```text
+https://huggingface.co/elicwhite/bs-roformer-sw-6stem-onnx/resolve/a744f80957374e1735ad70fa122670b7961da8cc/bs_roformer_sw_6stem_fp16.onnx
+```
+
+Worker에는 `arrayBuffer()`/`blob()`/전체 모델 버퍼나 Cache API 저장 로직이 없습니다. Content-Type, Content-Length, ETag, Last-Modified와 필요한 Content-Encoding을 전달합니다. Cache-Control은 `no-store`이며 영구 보관은 기존 OPFS가 담당합니다. 404/429/5xx는 upstream 상태를 유지하고, 네트워크 실패 또는 성공 상태의 빈 body는 502입니다. 이 endpoint는 GET만 허용하며 임의 URL이나 query parameter를 받지 않습니다. 요청자의 쿠키·Authorization·Range·조건부 요청 헤더도 upstream에 전달하지 않습니다.
+
+`src/separation/separationTypes.ts`에서는 URL만 변경했습니다. expected bytes **352778874**, revision **a744f80957374e1735ad70fa122670b7961da8cc**, SHA-256 상수 **d3d2bac77a7023282cb5f35a5807179e34076b60589867b572275f1a8ec36444**와 기존 모델 파일명은 그대로입니다. `OPFSModelCache`의 byte progress, 크기 검증, `.part`, 완료 marker, 취소, 모델 삭제 코드는 변경하지 않았습니다. 추론/DSP/chunking도 그대로입니다.
+
+### 개발 및 배포 설정
+
+`worker/viteModelProxy.ts`는 같은 proxy handler를 Vite dev/preview에 연결하는 Node streaming adapter입니다. `npm run dev`로 기존 localhost 개발을 계속하며, `npm run preview`도 같은 endpoint를 제공합니다. 브라우저 연결 종료는 upstream AbortSignal에 전달됩니다. PWA의 navigation fallback에서는 `/api`를 제외해 API 오류가 `index.html`로 감춰지지 않습니다.
+
+`wrangler.jsonc`는 [Cloudflare Static Assets의 현재 binding 방식](https://developers.cloudflare.com/workers/static-assets/binding/)을 사용합니다.
+
+- Worker 이름: `musicdissector`; entry: `worker/index.ts`.
+- Assets: `./dist`, binding: `ASSETS`, SPA fallback: `single-page-application`.
+- `run_worker_first`: `/api`와 `/api/*`; 나머지 정적 파일은 Assets에서 제공합니다.
+- compatibility date: `2026-09-26`; 개발 의존성 `wrangler@4.144.0` 고정.
+- `npm run build`에 Worker TypeScript 검사도 포함됩니다.
+
+GitHub 연동 Cloudflare Workers Build의 프로젝트 root는 `package.json`과 `wrangler.jsonc`가 있는 `Music dissector` 디렉터리입니다. 해당 디렉터리가 이미 repository root라면 root 설정을 추가할 필요가 없습니다. Node.js 22 이상을 사용하며 기존 build/deploy 명령은 다음과 같습니다.
+
+```bash
+npm ci
+npm run build
+npx wrangler deploy
+```
+
+Cloudflare GitHub 연동의 기존 배포 인증을 사용합니다. 저장소에는 토큰·계정 비밀값·모델 파일을 추가하지 않습니다. `npx wrangler deploy --dry-run`은 외부 배포 없이 bundle과 assets binding을 확인합니다. `npm run build` 후 `npx wrangler dev --local`로 Cloudflare runtime의 API/SPA routing도 로컬에서 확인할 수 있습니다.
+
+### 프록시 테스트
+
+`tests/model-proxy.spec.ts`는 첫 청크를 받기 전까지 producer를 완료시키지 않는 스트림과 body identity 검사를 사용해 전체 buffering이 없음을 검증합니다. 실제 로컬 HTTP 302 redirect follow, 전달 헤더, 404/429/5xx, network failure, body 부재, cancellation, 고정 endpoint와 모델 검증 상수도 검사합니다.
+
+`tests/model-download.spec.ts`는 테스트 서버의 모의 upstream → 동일 proxy handler → 브라우저 → 실제 OPFS 경로를 검증합니다. 모델 크기와 동일한 352778874바이트를 작은 zero-filled 청크로 생성하며 원격 336 MiB 모델은 받지 않습니다. producer를 첫 청크 뒤에 멈춰 byte progress와 취소를 검사한 다음 재시도로 실제 저장·완료 marker·reload 재사용·삭제를 검증합니다. Chromium incognito의 별도 메모리 파일시스템 한도를 피하기 위해 새 임시 디스크 프로필을 쓰고 테스트 후 삭제합니다. 기존 separation 테스트 역시 유지됩니다.
+
+최종 검증 (2026-09-30): `npm run build`, `npm run lint`, `git diff --check` 통과. `npm run test:e2e` **114개 전체 통과** (기존 103 + 신규 11, 1.6분). `npx wrangler deploy --dry-run`에서 Worker 2.29 KiB와 ASSETS binding을 확인했습니다. 로컬 `wrangler dev`에서 정적 앱/SPA fallback/manifest의 200 및 잘못된 API/query의 404/400도 확인했습니다. 기존 ONNX Runtime direct eval 경고 외 build 오류는 없습니다. 실제 remote 모델 다운로드·AI 추론 재실행·production 배포는 수행하지 않았습니다.

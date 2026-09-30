@@ -6,7 +6,7 @@ export const MODEL = {
   file: 'bs_roformer_sw_6stem_fp16.onnx',
   bytes: 352778874,
   sha256: 'd3d2bac77a7023282cb5f35a5807179e34076b60589867b572275f1a8ec36444',
-  url: 'https://huggingface.co/elicwhite/bs-roformer-sw-6stem-onnx/resolve/a744f80957374e1735ad70fa122670b7961da8cc/bs_roformer_sw_6stem_fp16.onnx',
+  url: '/api/model/bs-roformer-sw-6stem-fp16',
 } as const
 export const STEM_OUTPUT_ORDER: StemId[] = ['bass', 'drums', 'others', 'vocals', 'guitar', 'piano']
 export const SAMPLE_RATE = 44100

@@ -1,6 +1,7 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { viteModelProxy } from './worker/viteModelProxy.ts'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -16,6 +17,7 @@ export default defineConfig({
     strictPort: true,
   },
   plugins: [
+    viteModelProxy(),
     react(),
     VitePWA({
       registerType: 'prompt',
@@ -43,6 +45,7 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 32 * 1024 * 1024,
         globPatterns: ['**/*.{js,mjs,wasm,css,html,svg,png,webmanifest}'],
         navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/api(?:\/|$)/],
         cleanupOutdatedCaches: true,
         // Only the app shell is precached. User audio stays in local blob URLs.
       },

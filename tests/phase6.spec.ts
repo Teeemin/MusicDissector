@@ -48,7 +48,7 @@ test('MP3 duration enables 4:13 and 6:00; longer input explains the disabled but
 
 test('unsupported GPU never downloads the model and original playback still works', async ({ page }) => {
   let downloads = 0
-  await page.route('https://huggingface.co/**', (route) => { downloads++; return route.abort() })
+  await page.route(`**${MODEL.url}`, (route) => { downloads++; return route.abort() })
   await page.addInitScript(() => Object.defineProperty(navigator, 'gpu', { value: undefined }))
   await page.goto('/')
   await expect(page.getByText('이 기기/브라우저에서는 GPU 분리를 지원하지 않습니다.', { exact: false })).toBeVisible()
