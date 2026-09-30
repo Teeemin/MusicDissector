@@ -207,3 +207,15 @@ OPFS와 IDB는 하나의 원자적 transaction을 공유할 수 없어 journal�
 현재 작업 트리에는 MP3 믹스 내보내기 기능이 없습니다. 이번 기능은 프로젝트 저장에 한정되며 MP3 bounce/download를 추가하거나 이를 프로젝트 저장으로 대체하지 않습니다. HTTPS 배포도 진행하지 않습니다.
 
 프로젝트 저장 최종 검증 (2026-09-30): `npm run build`, `npm run lint`, `git diff --check` 통과. 전체 **100개 테스트 통과** (기존 87 + 프로젝트 13, 실패/건너뜀 없음, 1.3분). 실제 FLAC 인코딩 / 파일 헤더 / native decoding 샘플 오차 / OPFS·IndexedDB / 모델 없는 오프라인 재생 / 설정만 갱신 / 삭제·quota·취소·복구·동시 탭·손상·버전·늦은 로드 처리를 검증했습니다. AI 분리 테스트는 기존 합성 추론 fixture를 사용하며 실제 FP16 모델을 재실행하지 않았습니다. 기존 ONNX Runtime 내부 direct eval 빌드 경고 외 오류는 없습니다.
+
+### 첫 파일 선택이 사라지는 개발 서버 문제
+
+캐시 없는 Vite에서 첫 파일 선택 후 metadata/BPM Worker가 시작되면 `music-metadata`와 `essentia.js/dist/essentia.js-core.es.js`를 뒤늦게 발견했습니다. 실제 재현 로그는 `FILE_SELECTED → track id 2 → dependencies optimized → optimized dependencies changed. reloading → 새 문서 navigation` 순서였습니다. 이때 `AudioEngine.dispose()` 호출은 없었으며, 전체 페이지 새로고침이 Session Only 상태를 지웠습니다. OPFS/IndexedDB 복구가 현재 곡을 초기화하는 문제는 아니었습니다.
+
+`vite.config.ts`의 `optimizeDeps.include`에 worker 전용 의존성을 명시했습니다. 이후 처음 시작하는 separation worker도 같은 문제를 일으키지 않도록 `onnxruntime-web/all`을 포함합니다. 모델 다운로드·추론·DSP·chunk 설정은 변경하지 않습니다.
+
+별도로 `App.tsx`의 effect cleanup에서 전역 `audioEngine.dispose()`를 호출하던 코드도 제거했습니다. 화면 mount/StrictMode effect 재실행은 사용자의 세션 종료가 아닙니다. 세션은 파일 선택·프로젝트 불러오기·명시적인 삭제 등 기존 사용자 action으로 관리하며, 기존 track generation/AbortController 검사를 유지합니다. 프로젝트 시작 시 복구·목록·용량 조회는 프로젝트 저장소 상태만 갱신합니다. 임의 delay나 StrictMode 비활성화는 사용하지 않습니다.
+
+회귀 테스트: `tests/startup-dev.spec.ts`는 독립적인 빈 Vite 캐시와 실제 개발 서버에서 첫 파일의 metadata/artwork·실제 Essentia BPM·재생 및 자동 reload 부재를 검사하고, StrictMode effect replay와 App 재마운트 후 선택·재생·Repeat 유지도 검증합니다. `tests/startup.spec.ts`는 fresh context에서 복구 전과 storage estimate 완료 전을 Promise gate로 각각 막은 뒤 파일을 한 번만 선택하고, 뒤늦은 journal/orphan 정리·저장 목록 갱신 후에도 metadata·재생·seek·분리가 유지되는지 검사합니다. 분리 Worker 응답은 기존 합성 fixture이며 실제 AI 모델을 실행하는 테스트는 아닙니다.
+
+수정 후 검증: `npm run build`, `npm run lint`, `npm run test:e2e` 통과. 전체 **103개 통과** (기존 100 + 시작/StrictMode 회귀 3, 1.5분). 기존 ONNX Runtime 내부 direct eval 경고 외 build/lint 오류는 없습니다. 임시 diagnostic log는 앱 코드에 남기지 않았습니다.

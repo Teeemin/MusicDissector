@@ -6,12 +6,13 @@ import { PwaControls } from './components/PwaControls'
 import { LyricsPanel } from './components/LyricsPanel'
 import { SavedProjects } from './components/SavedProjects'
 import { StemMixer } from './components/StemMixer'
-import { audioEngine } from './audio/AudioEngine'
 import { removeLegacyChordCache } from './analysis/analysisCache'
 import './App.css'
 
 function App() {
-  useEffect(() => { removeLegacyChordCache(); return () => audioEngine.dispose() }, [])
+  // The session belongs to explicit user actions, not this view's lifetime.
+  // StrictMode effect replay / Fast Refresh must not dispose a selected file.
+  useEffect(() => { removeLegacyChordCache() }, [])
 
   return (
     <div className="app-shell">

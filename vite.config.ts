@@ -4,6 +4,12 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Workers start only after a user action and are missed by the initial HTML
+  // dependency crawl. Discover them now: late optimization triggers a full dev
+  // page reload, which discards the user's session-only File and audio buffers.
+  optimizeDeps: {
+    include: ['music-metadata', 'essentia.js/dist/essentia.js-core.es.js', 'onnxruntime-web/all'],
+  },
   worker: { format: 'es' },
   server: {
     port: 5173,
